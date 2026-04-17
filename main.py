@@ -58,7 +58,11 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, info):
     pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
     pdf.ln(10); pdf.set_font("Arial", 'B', 14)
     pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
-    pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}\n\nObs: {obs}")
+    pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
+    if obs:
+        pdf.ln(2)
+        pdf.set_font("Arial", 'B', 11); pdf.cell(10, 7, "Obs: "); pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
+    
     pdf.ln(5); pdf.set_font("Arial", 'B', 14)
     pdf.cell(0, 10, "2. CONDICOES E ENTREGA", ln=True)
     pdf.set_font("Arial", '', 11)
@@ -88,21 +92,19 @@ def main():
     aplicar_estilo_pj_gold()
     conn = sqlite3.connect('pj_gold_data.db'); cursor = conn.cursor()
     
-    # Inicialização de Tabelas com colunas de Prazo e Pagamento
+    # Garantir que todas as colunas necessárias existam
     cursor.execute('''CREATE TABLE IF NOT EXISTS projetos 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, servico TEXT, valor REAL, status TEXT, 
                        data_inicio TEXT, mes_ano TEXT, telefone TEXT, financeiro TEXT, valor_entrada REAL, 
                        status_entrada TEXT, valor_final REAL, status_final TEXT, status_integral TEXT,
-                       prazo_salvo TEXT, pagamento_salvo TEXT)''')
+                       prazo_salvo TEXT, pagamento_salvo TEXT, revisao_salva TEXT, obs_salva TEXT)''')
     
-    # Migração para quem já tem o banco antigo
-    try: cursor.execute("ALTER TABLE projetos ADD COLUMN prazo_salvo TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE projetos ADD COLUMN pagamento_salvo TEXT")
-    except: pass
+    # Migrações seguras
+    for col in [("prazo_salvo", "TEXT"), ("pagamento_salvo", "TEXT"), ("revisao_salva", "TEXT"), ("obs_salva", "TEXT")]:
+        try: cursor.execute(f"ALTER TABLE projetos ADD COLUMN {col[0]} {col[1]}")
+        except: pass
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY, nome_studio TEXT, sub_titulo TEXT, contato TEXT, email TEXT, endereco TEXT)''')
-    
     cursor.execute("SELECT nome_studio, sub_titulo, contato, email, endereco FROM config WHERE id=1")
     config_res = cursor.fetchone()
     
@@ -122,8 +124,7 @@ def main():
                 else:
                     entrada = v_ent if r['status_entrada'] == 'Recebido' else 0
                     final = v_ent if r['status_final'] == 'Recebido' else 0
-                    total_rec += (entrada + final)
-                    total_pend += (v_total - (entrada + final))
+                    total_rec += (entrada + final); total_pend += (v_total - (entrada + final))
         
         col1, col2 = st.columns(2)
         with col1: st.markdown(f"<div class='stMetric'><b>Total em Caixa</b><br><h2>R$ {total_rec:,.2f}</h2></div>", unsafe_allow_html=True)
@@ -136,16 +137,20 @@ def main():
             n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor Total", min_value=0.0)
             ser = st.text_area("Serviço")
-            prz = st.text_input("Prazo", "7 dias úteis")
-            pag = st.text_input("Forma de Pagamento", "50% entrada / 50% entrega")
+            obs_input = st.text_input("Observações (Ex: Somente arte, sem impressão)")
+            c3, c4, c5 = st.columns(3)
+            prz = c3.text_input("Prazo", "10")
+            rev_input = c4.selectbox("Revisões", ["Padrão", "1", "2", "3", "Ilimitadas"])
+            pag = c5.text_input("Forma de Pagamento", "PIX PARCELADO")
+            
             if st.form_submit_button("SALVAR E GERAR PDF"):
                 v_m = v / 2
                 cursor.execute("""INSERT INTO projetos (cliente, servico, valor, status, data_inicio, telefone, 
                                  valor_entrada, status_entrada, valor_final, status_final, status_integral, 
-                                 prazo_salvo, pagamento_salvo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                             (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v_m, "Pendente", v_m, "Pendente", "Pendente", prz, pag))
+                                 prazo_salvo, pagamento_salvo, revisao_salva, obs_salva) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                             (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v_m, "Pendente", v_m, "Pendente", "Pendente", prz, pag, rev_input, obs_input))
                 conn.commit()
-                st.session_state.pdf_b = gerar_pdf_orcamento(n, ser, v, pag, prz, "Padrão", "", config_res)
+                st.session_state.pdf_b = gerar_pdf_orcamento(n, ser, v, pag, prz, rev_input, obs_input, config_res)
                 st.session_state.pdf_n = n
                 st.success("Salvo com sucesso!")
         if 'pdf_b' in st.session_state:
@@ -168,10 +173,8 @@ def main():
                     cursor.execute("UPDATE projetos SET status_entrada=?, status_final=?, status_integral=? WHERE id=?", (s_ent, s_fin, s_int, r['id']))
                     conn.commit(); st.rerun()
                 
-                # RE-ORÇAMENTO BUSCANDO OS DADOS SALVOS
-                p_salvo = r['prazo_salvo'] if r['prazo_salvo'] else "A combinar"
-                pg_salvo = r['pagamento_salvo'] if r['pagamento_salvo'] else "A combinar"
-                pdf_re = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], pg_salvo, p_salvo, "Padrão", "", config_res)
+                # RE-ORÇAMENTO COM TODOS OS DADOS RECUPERADOS
+                pdf_re = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'], config_res)
                 col_b.download_button("📄 Re-Orcamento", pdf_re, f"Orcamento_{r['cliente']}.pdf", key=f"re{r['id']}")
                 
                 v_rec = r['valor'] if s_int == "Recebido" else r['valor_entrada']
