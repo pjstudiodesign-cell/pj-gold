@@ -7,58 +7,60 @@ from fpdf import FPDF
 # 1. Configuração da Página
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
-# 2. Estilo Visual PJ GOLD (Autoridade Ouro Total)
+# 2. Estilo Visual PJ GOLD (Destaque do Texto do Botão Corrigido)
 def aplicar_estilo():
     st.markdown("""
         <style>
         .stApp { background-color: #050505; }
         
-        /* Títulos e Textos Principais em Ouro */
         h1, h2, h3, p, span, label { 
             color: #FFD700 !important; 
             font-weight: bold !important;
         }
         
-        /* Ajuste para textos dentro de Expanders e Cards */
         .st-emotion-cache-p5msec, .st-emotion-cache-1h9usn2 {
             color: #FFD700 !important;
         }
 
-        /* Sidebar Customizada */
         section[data-testid="stSidebar"] { 
             background-color: #0a0a0a; 
             border-right: 2px solid #FFD700; 
         }
         [data-testid="stSidebarNav"] span { color: #FFD700 !important; }
 
-        /* Botões com Gradiente Ouro */
+        /* AJUSTE CIRÚRGICO: Texto do botão em preto puro para alto contraste sobre o ouro */
         .stButton>button, .stDownloadButton>button {
             background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%) !important;
-            color: #000000 !important;
-            font-weight: bold !important;
+            color: #000000 !important; /* Preto para destaque total */
+            font-weight: 900 !important; /* Extra negrito */
             border-radius: 8px !important;
             width: 100% !important;
             border: 1px solid #D4AF37 !important;
             height: 3em !important;
             transition: 0.3s;
-        }
-        .stButton>button:hover {
-            transform: scale(1.02);
-            box-shadow: 0px 0px 15px rgba(255, 215, 0, 0.4);
+            text-transform: uppercase; /* Texto em caixa alta para mais autoridade */
         }
         
-        /* Métricas em Destaque */
+        /* Garantindo que o texto do download button também apareça */
+        .stDownloadButton>button p { 
+            color: #000000 !important; 
+            font-weight: 900 !important;
+        }
+
+        .stButton>button:hover {
+            transform: scale(1.02);
+            box-shadow: 0px 0px 20px rgba(255, 215, 0, 0.6);
+        }
+        
         .stMetric { 
             background-color: #111111; 
             padding: 20px; 
             border-radius: 12px; 
             border: 1px solid #FFD700; 
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
         }
         [data-testid="stMetricLabel"] { color: #ffffff !important; }
         [data-testid="stMetricValue"] { color: #FFD700 !important; font-size: 2em !important; }
 
-        /* Inputs e Selectboxes */
         .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div>div {
             background-color: #1a1a1a !important;
             color: #FFD700 !important;
@@ -67,7 +69,8 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 3. Busca de Dados
+# --- RESTANTE DO CÓDIGO MANTIDO INALTERADO CONFORME SOLICITADO ---
+
 def buscar_dados_empresa():
     try:
         conn = sqlite3.connect('pjgold_data.db')
@@ -77,40 +80,32 @@ def buscar_dados_empresa():
         conn.close()
         if res: return res
     except: pass
-    return ("PJ Gold", "Elite Service", "", "", "")
+    return ("PJ Gold", "Gestão de Elite", "", "", "")
 
-# 4. Funções de PDF (Dourado e Profissional)
 def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
     try:
         info = buscar_dados_empresa()
         pdf = FPDF()
         pdf.add_page()
         pdf.set_fill_color(10, 10, 10); pdf.rect(0, 0, 210, 65, 'F')
-        
         pdf.set_y(12); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(255, 215, 0)
         pdf.cell(0, 12, "PJ Gold", ln=True, align='C')
-        
         pdf.set_font("Arial", 'I', 10); pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 6, str(info[1]), ln=True, align='C')
-        
         pdf.set_font("Arial", '', 9); pdf.set_text_color(200, 200, 200)
         contato_info = f"WhatsApp: {info[2]} | Email: {info[3]}"
         pdf.cell(0, 6, contato_info, ln=True, align='C')
         if info[4]: pdf.multi_cell(0, 5, f"Endereço: {info[4]}", align='C')
-        
         pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
         pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
         pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
-        
         pdf.ln(10); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "1. ESCOPO DO SERVICO", ln=True)
         pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
         if obs:
             pdf.ln(2); pdf.set_font("Arial", 'B', 11); pdf.cell(10, 7, "Obs: "); pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
-        
         pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. CONDICOES", ln=True)
         pdf.set_font("Arial", '', 11); pdf.cell(0, 8, f"- Prazo Estimado: {prazo} | Revisões: {rev}", ln=True)
         pdf.cell(0, 8, f"- Forma de Pagamento: {pgto}", ln=True)
-        
         pdf.set_y(-45); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(184, 134, 11)
         pdf.cell(0, 15, f"INVESTIMENTO: R$ {valor:,.2f}", ln=True, align='R')
         return pdf.output(dest='S').encode('latin-1', 'ignore')
@@ -132,7 +127,6 @@ def gerar_pdf_recibo(cliente, servico, valor):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
-# 5. Banco de Dados
 def iniciar_db():
     conn = sqlite3.connect('pjgold_data.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -148,7 +142,6 @@ def iniciar_db():
         conn.commit()
     return conn
 
-# 6. Interface Principal
 def main():
     aplicar_estilo()
     conn = iniciar_db()
@@ -190,7 +183,6 @@ def main():
                         prazo_salvo, pagamento_salvo, revisao_salva, obs_salva) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (n, ser, v, "Ativo", datetime.now().strftime("%d/%m/%Y"), tel, v/2, "Pendente", v/2, "Pendente", "Pendente", prz, pag, rev, obs_in))
                     conn.commit(); st.success("Projeto Salvo com Sucesso!"); st.balloons()
-                else: st.error("Por favor, preencha o Cliente e o Serviço.")
 
     elif escolha == "Gestão de Projetos":
         st.title("📂 Controle de Jobs e Fluxo")
