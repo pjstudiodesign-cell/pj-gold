@@ -7,7 +7,7 @@ from fpdf import FPDF
 # 1. Configuração da Página
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
-# 2. Estilo Visual PJ GOLD (Destaque do Texto do Botão Corrigido)
+# 2. Estilo Visual PJ GOLD (Texto do Botão em Preto para Contraste)
 def aplicar_estilo():
     st.markdown("""
         <style>
@@ -28,20 +28,20 @@ def aplicar_estilo():
         }
         [data-testid="stSidebarNav"] span { color: #FFD700 !important; }
 
-        /* AJUSTE CIRÚRGICO: Texto do botão em preto puro para alto contraste sobre o ouro */
+        /* AJUSTE CIRÚRGICO: Texto em PRETO para máxima legibilidade */
         .stButton>button, .stDownloadButton>button {
             background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%) !important;
-            color: #000000 !important; /* Preto para destaque total */
-            font-weight: 900 !important; /* Extra negrito */
+            color: #000000 !important; 
+            font-weight: 900 !important;
             border-radius: 8px !important;
             width: 100% !important;
             border: 1px solid #D4AF37 !important;
             height: 3em !important;
             transition: 0.3s;
-            text-transform: uppercase; /* Texto em caixa alta para mais autoridade */
+            text-transform: uppercase;
         }
         
-        /* Garantindo que o texto do download button também apareça */
+        /* Forçando o texto do botão de download */
         .stDownloadButton>button p { 
             color: #000000 !important; 
             font-weight: 900 !important;
@@ -69,8 +69,7 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# --- RESTANTE DO CÓDIGO MANTIDO INALTERADO CONFORME SOLICITADO ---
-
+# 3. Busca de Dados
 def buscar_dados_empresa():
     try:
         conn = sqlite3.connect('pjgold_data.db')
@@ -80,8 +79,9 @@ def buscar_dados_empresa():
         conn.close()
         if res: return res
     except: pass
-    return ("PJ Gold", "Gestão de Elite", "", "", "")
+    return ("PJ Gold", "Elite Service", "", "", "")
 
+# 4. Funções de PDF
 def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
     try:
         info = buscar_dados_empresa()
@@ -127,6 +127,7 @@ def gerar_pdf_recibo(cliente, servico, valor):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
+# 5. Banco de Dados
 def iniciar_db():
     conn = sqlite3.connect('pjgold_data.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -142,6 +143,7 @@ def iniciar_db():
         conn.commit()
     return conn
 
+# 6. Interface Principal
 def main():
     aplicar_estilo()
     conn = iniciar_db()
