@@ -92,14 +92,13 @@ def main():
     aplicar_estilo_pj_gold()
     conn = sqlite3.connect('pj_gold_data.db'); cursor = conn.cursor()
     
-    # Garantir que todas as colunas necessárias existam
+    # Tabelas
     cursor.execute('''CREATE TABLE IF NOT EXISTS projetos 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, servico TEXT, valor REAL, status TEXT, 
                        data_inicio TEXT, mes_ano TEXT, telefone TEXT, financeiro TEXT, valor_entrada REAL, 
                        status_entrada TEXT, valor_final REAL, status_final TEXT, status_integral TEXT,
                        prazo_salvo TEXT, pagamento_salvo TEXT, revisao_salva TEXT, obs_salva TEXT)''')
     
-    # Migrações seguras
     for col in [("prazo_salvo", "TEXT"), ("pagamento_salvo", "TEXT"), ("revisao_salva", "TEXT"), ("obs_salva", "TEXT")]:
         try: cursor.execute(f"ALTER TABLE projetos ADD COLUMN {col[0]} {col[1]}")
         except: pass
@@ -132,29 +131,43 @@ def main():
 
     elif escolha == "Novo Job":
         st.title("⚜️ Novo Orçamento")
-        with st.form("orc", clear_on_submit=False):
+        
+        # Uso de formulário com limpeza automática após submissão
+        with st.form("orc_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
-            n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
+            n = c1.text_input("Cliente")
+            tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor Total", min_value=0.0)
             ser = st.text_area("Serviço")
-            obs_input = st.text_input("Observações (Ex: Somente arte, sem impressão)")
+            obs_input = st.text_input("Observações")
             c3, c4, c5 = st.columns(3)
             prz = c3.text_input("Prazo", "10")
             rev_input = c4.selectbox("Revisões", ["Padrão", "1", "2", "3", "Ilimitadas"])
             pag = c5.text_input("Forma de Pagamento", "PIX PARCELADO")
             
-            if st.form_submit_button("SALVAR E GERAR PDF"):
-                v_m = v / 2
-                cursor.execute("""INSERT INTO projetos (cliente, servico, valor, status, data_inicio, telefone, 
-                                 valor_entrada, status_entrada, valor_final, status_final, status_integral, 
-                                 prazo_salvo, pagamento_salvo, revisao_salva, obs_salva) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                             (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v_m, "Pendente", v_m, "Pendente", "Pendente", prz, pag, rev_input, obs_input))
-                conn.commit()
-                st.session_state.pdf_b = gerar_pdf_orcamento(n, ser, v, pag, prz, rev_input, obs_input, config_res)
-                st.session_state.pdf_n = n
-                st.success("Salvo com sucesso!")
-        if 'pdf_b' in st.session_state:
-            st.download_button("📥 BAIXAR PDF", st.session_state.pdf_b, f"Orcamento_{st.session_state.pdf_n}.pdf", "application/pdf")
+            submit = st.form_submit_button("SALVAR E GERAR PDF")
+            
+            if submit:
+                if n and ser:
+                    v_m = v / 2
+                    cursor.execute("""INSERT INTO projetos (cliente, servico, valor, status, data_inicio, telefone, 
+                                     valor_entrada, status_entrada, valor_final, status_final, status_integral, 
+                                     prazo_salvo, pagamento_salvo, revisao_salva, obs_salva) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                 (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v_m, "Pendente", v_m, "Pendente", "Pendente", prz, pag, rev_input, obs_input))
+                    conn.commit()
+                    
+                    # Guardamos o PDF no session_state para que ele não se perca no recarregamento
+                    st.session_state.last_pdf = gerar_pdf_orcamento(n, ser, v, pag, prz, rev_input, obs_input, config_res)
+                    st.session_state.last_client = n
+                    st.success(f"Orçamento para {n} guardado com sucesso!")
+                    st.rerun() # O rerun limpa a ação de "submit" e evita duplicar
+
+        # O botão de baixar aparece aqui fora para não causar novo salvamento
+        if 'last_pdf' in st.session_state:
+            st.download_button("📥 BAIXAR PDF GERADO", st.session_state.last_pdf, f"Orcamento_{st.session_state.last_client}.pdf", "application/pdf")
+            if st.button("Novo Orçamento"):
+                del st.session_state.last_pdf
+                st.rerun()
 
     elif escolha == "Gestão de Projetos":
         st.title("⚜️ Gestão de Projetos")
@@ -173,7 +186,7 @@ def main():
                     cursor.execute("UPDATE projetos SET status_entrada=?, status_final=?, status_integral=? WHERE id=?", (s_ent, s_fin, s_int, r['id']))
                     conn.commit(); st.rerun()
                 
-                # RE-ORÇAMENTO COM TODOS OS DADOS RECUPERADOS
+                # Re-Orçamento usando os dados específicos salvos
                 pdf_re = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'], config_res)
                 col_b.download_button("📄 Re-Orcamento", pdf_re, f"Orcamento_{r['cliente']}.pdf", key=f"re{r['id']}")
                 
