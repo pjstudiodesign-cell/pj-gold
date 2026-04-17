@@ -62,39 +62,43 @@ def init_db():
     conn.close()
 
 def gerar_pdf_orcamento(cliente, servico, valor, validade, pagamento, prazo, revisoes, obs, info_studio):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_fill_color(20, 20, 20)
-    pdf.rect(0, 0, 210, 55, 'F')
-    pdf.set_font("Arial", 'B', 24)
-    pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 15, info_studio[0], ln=True, align='C')
-    pdf.set_font("Arial", 'I', 10)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 5, info_studio[1], ln=True, align='C')
-    pdf.set_font("Arial", '', 9)
-    pdf.cell(0, 5, f"WhatsApp: {info_studio[2]} | Email: {info_studio[3]}", ln=True, align='C')
-    pdf.cell(0, 5, f"Endereco: {info_studio[4]}", ln=True, align='C')
-    pdf.ln(20)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(100, 10, f"CLIENTE: {cliente.upper()}", ln=0)
-    pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
-    pdf.ln(10)
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
-    pdf.set_font("Arial", '', 11)
-    pdf.multi_cell(0, 7, f"{servico}\n\nObs: {obs}")
-    pdf.ln(5)
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "2. TERMOS E ENTREGA", ln=True)
-    pdf.set_font("Arial", '', 11)
-    pdf.cell(0, 8, f"- Prazo: {prazo} | Revisoes: {revisoes}", ln=True)
-    pdf.cell(0, 8, f"- Pagamento: {pagamento} | Validade: {validade} dias", ln=True)
-    pdf.set_y(-40)
-    pdf.set_font("Arial", 'B', 18)
-    pdf.cell(0, 15, f"INVESTIMENTO TOTAL: R$ {valor:,.2f}", ln=True, align='R')
-    return pdf.output(dest='S').encode('latin-1')
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_fill_color(20, 20, 20)
+        pdf.rect(0, 0, 210, 55, 'F')
+        pdf.set_font("Arial", 'B', 24)
+        pdf.set_text_color(212, 175, 55)
+        pdf.cell(0, 15, str(info_studio[0]), ln=True, align='C')
+        pdf.set_font("Arial", 'I', 10)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(0, 5, str(info_studio[1]), ln=True, align='C')
+        pdf.set_font("Arial", '', 9)
+        pdf.cell(0, 5, f"WhatsApp: {info_studio[2]} | Email: {info_studio[3]}", ln=True, align='C')
+        pdf.cell(0, 5, f"Endereco: {info_studio[4]}", ln=True, align='C')
+        pdf.ln(20)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
+        pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
+        pdf.ln(10)
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
+        pdf.set_font("Arial", '', 11)
+        pdf.multi_cell(0, 7, f"{servico}\n\nObs: {obs}")
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "2. TERMOS E ENTREGA", ln=True)
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(0, 8, f"- Prazo: {prazo} | Revisoes: {revisoes}", ln=True)
+        pdf.cell(0, 8, f"- Pagamento: {pagamento} | Validade: {validade} dias", ln=True)
+        pdf.set_y(-40)
+        pdf.set_font("Arial", 'B', 18)
+        pdf.cell(0, 15, f"INVESTIMENTO TOTAL: R$ {valor:,.2f}", ln=True, align='R')
+        return pdf.output(dest='S').encode('latin-1')
+    except:
+        # Fallback para evitar erro de encoding se houver caracteres especiais
+        return pdf.output(dest='S').encode('utf-8', 'ignore')
 
 def main():
     aplicar_estilo_pj_gold()
@@ -114,8 +118,6 @@ def main():
     if escolha == "Painel":
         st.title(f"⚜️ {config_data['nome_studio']}")
         df = pd.read_sql_query("SELECT * FROM projetos", conn)
-        
-        # Correção da linha que deu erro:
         recebido = 0.0
         a_receber = 0.0
         if not df.empty:
@@ -130,6 +132,12 @@ def main():
 
     elif escolha == "Novo Job / Orçamento":
         st.title("⚜️ Gerar Novo Orçamento")
+        
+        # Variáveis para guardar o PDF gerado
+        if 'pdf_gerado' not in st.session_state:
+            st.session_state.pdf_gerado = None
+            st.session_state.cliente_atual = ""
+
         with st.form("form_orcamento"):
             col_a, col_b = st.columns(2)
             n = col_a.text_input("Nome do Cliente")
@@ -142,15 +150,31 @@ def main():
             pg = col_d.text_input("Forma de Pagamento")
             rev = st.selectbox("Quantidade de Revisões", ["1 Revisão", "2 Revisões", "3 Revisões", "Ilimitadas"])
             
-            if st.form_submit_button("GERAR ORÇAMENTO E SALVAR"):
-                mes_atual = datetime.now().strftime("%m/%Y")
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO projetos (cliente, servico, valor, status, data_inicio, mes_ano, telefone, financeiro) VALUES (?,?,?,?,?,?,?,?)",
-                               (n, ser, val, "Em Produção", datetime.now().strftime("%d/%m/%Y"), mes_atual, tel, "Pendente"))
-                conn.commit()
-                pdf_bytes = gerar_pdf_orcamento(n, ser, val, 15, pg, prz, rev, obs, [config_data['nome_studio'], config_data['sub_titulo'], config_data['contato'], config_data['email'], config_data['endereco']])
-                st.success(f"Projeto de {n} salvo!")
-                st.download_button("📥 BAIXAR PDF", pdf_bytes, f"Orcamento_{n}.pdf", "application/pdf")
+            submit = st.form_submit_button("SALVAR E GERAR PDF")
+            
+            if submit:
+                if n and ser:
+                    mes_atual = datetime.now().strftime("%m/%Y")
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO projetos (cliente, servico, valor, status, data_inicio, mes_ano, telefone, financeiro) VALUES (?,?,?,?,?,?,?,?)",
+                                   (n, ser, val, "Em Produção", datetime.now().strftime("%d/%m/%Y"), mes_atual, tel, "Pendente"))
+                    conn.commit()
+                    
+                    # Gera o PDF e guarda no estado da sessão (fora do form)
+                    st.session_state.pdf_gerado = gerar_pdf_orcamento(n, ser, val, 15, pg, prz, rev, obs, [config_data['nome_studio'], config_data['sub_titulo'], config_data['contato'], config_data['email'], config_data['endereco']])
+                    st.session_state.cliente_atual = n
+                    st.success(f"Projeto de {n} salvo com sucesso!")
+                else:
+                    st.warning("Por favor, preencha o Nome e a Descrição.")
+
+        # O BOTÃO DE DOWNLOAD FICA AQUI FORA DO FORM
+        if st.session_state.pdf_gerado:
+            st.download_button(
+                label="📥 CLIQUE AQUI PARA BAIXAR O PDF",
+                data=st.session_state.pdf_gerado,
+                file_name=f"Orcamento_{st.session_state.cliente_atual}.pdf",
+                mime="application/pdf"
+            )
 
     elif escolha == "Gestão de Projetos":
         st.title("⚜️ Acompanhamento de Jobs")
