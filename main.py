@@ -50,6 +50,7 @@ def init_db():
                        status_entrada TEXT, valor_final REAL, status_final TEXT,
                        status_integral TEXT)''')
     
+    # Garante que as novas colunas existam
     colunas = [
         ("valor_entrada", "REAL DEFAULT 0"),
         ("status_entrada", "TEXT DEFAULT 'Pendente'"),
@@ -80,7 +81,7 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, info_lis
     pdf.add_page()
     pdf.set_fill_color(20, 20, 20)
     pdf.rect(0, 0, 210, 55, 'F')
-    pdf.set_font("Arial", 'B', 24)
+    pdf.set_font("Arial", 'B', 20)
     pdf.set_text_color(212, 175, 55)
     pdf.cell(0, 15, str(info_list[0]), ln=True, align='C')
     pdf.set_font("Arial", 'I', 10)
@@ -101,11 +102,10 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, info_lis
     pdf.multi_cell(0, 7, f"{servico}\n\nObs: {obs}")
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "2. CONDICOES E ENTREGA", ln=True)
+    pdf.cell(0, 10, "2. CONDICOES", ln=True)
     pdf.set_font("Arial", '', 11)
     pdf.cell(0, 8, f"- Prazo: {prazo} | Revisoes: {rev}", ln=True)
     pdf.cell(0, 8, f"- Pagamento: {pgto}", ln=True)
-    pdf.cell(0, 8, f"- Obs: Aceitamos entrada de 50% e 50% na entrega ou valor integral.", ln=True)
     pdf.set_y(-40)
     pdf.set_font("Arial", 'B', 18)
     pdf.cell(0, 15, f"INVESTIMENTO TOTAL: R$ {valor:,.2f}", ln=True, align='R')
@@ -115,72 +115,112 @@ def main():
     aplicar_estilo_pj_gold()
     init_db()
     conn = sqlite3.connect('pj_gold_data.db')
-    config_df = pd.read_sql_query("SELECT * FROM config WHERE id=1", conn)
     
-    if config_df.empty:
-        st.error("Erro nas configurações.")
-        return
-        
-    config_row = config_df.iloc[0]
-    # Criamos uma lista simples para o PDF não dar erro de chave
-    info_para_pdf = [config_row['nome_studio'], config_row['sub_titulo'], config_row['contato'], config_row['email'], config_row['endereco']]
+    # Carrega Configurações
+    cursor = conn.cursor()
+    cursor.execute("SELECT nome_studio, sub_titulo, contato, email, endereco FROM config WHERE id=1")
+    config_data = cursor.fetchone()
+    info_para_pdf = list(config_data)
 
     st.sidebar.title("⚜️ PJ GOLD MENU")
-    menu = ["Painel", "Novo Job / Orçamento", "Gestão de Projetos", "Backup de Segurança", "Configurações"]
-    escolha = st.sidebar.radio("Navegação:", menu)
+    menu = ["Painel", "Novo Job / Orçamento", "Gestão de Projetos", "Backup", "Configurações"]
+    escolha = st.sidebar.radio("Ir para:", menu)
 
     if escolha == "Painel":
-        st.title(f"⚜️ {config_row['nome_studio']}")
+        st.title(f"⚜️ {config_data[0]}")
         df = pd.read_sql_query("SELECT * FROM projetos", conn)
-        total_recebido, total_pendente = 0.0, 0.0
+        total_rec, total_pend = 0.0, 0.0
         if not df.empty:
-            for _, row in df.iterrows():
-                if row['status_integral'] == 'Recebido':
-                    total_recebido += row['valor']
+            for _, r in df.iterrows():
+                if r['status_integral'] == 'Recebido':
+                    total_rec += r['valor']
                 else:
-                    rec = (row['valor_entrada'] if row['status_entrada'] == 'Recebido' else 0) + \
-                          (row['valor_final'] if row['status_final'] == 'Recebido' else 0)
-                    total_recebido += rec
-                    total_pendente += (row['valor'] - rec)
+                    v_e = r['valor_entrada'] if r['status_entrada'] == 'Recebido' else 0
+                    v_f = r['valor_final'] if r['status_final'] == 'Recebido' else 0
+                    total_rec += (v_e + v_f)
+                    total_pend += (r['valor'] - (v_e + v_f))
         
         c1, c2 = st.columns(2)
-        c1.markdown(f"<div class='stMetric'><b>Total em Caixa</b><br><h2 style='color:#D4AF37'>R$ {total_recebido:,.2f}</h2></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='stMetric'><b>A Receber</b><br><h2 style='color:#D4AF37'>R$ {total_pendente:,.2f}</h2></div>", unsafe_allow_html=True)
+        c1.markdown(f"<div class='stMetric'><b>Total em Caixa</b><br><h2>R$ {total_rec:,.2f}</h2></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='stMetric'><b>A Receber</b><br><h2>R$ {total_pend:,.2f}</h2></div>", unsafe_allow_html=True)
 
     elif escolha == "Novo Job / Orçamento":
         st.title("⚜️ Novo Orçamento")
-        with st.form("form_orcamento", clear_on_submit=False):
-            c_a, c_b = st.columns(2)
-            n = c_a.text_input("Nome do Cliente")
-            tel = c_b.text_input("WhatsApp")
-            val = st.number_input("Valor Total (R$)", min_value=0.0, step=50.0)
-            ser = st.text_area("Descrição do Serviço")
-            obs = st.text_input("Observações")
-            c_c, c_d = st.columns(2)
-            prz = c_c.text_input("Prazo")
-            pg = c_d.text_input("Forma de Pagamento")
-            rev = st.selectbox("Revisões", ["1 Revisão", "2 Revisões", "3 Revisões", "Ilimitadas"])
+        with st.form("orc", clear_on_submit=False):
+            nome = st.text_input("Cliente")
+            whats = st.text_input("WhatsApp")
+            valor = st.number_input("Valor Total", min_value=0.0)
+            serv = st.text_area("Serviço")
+            prazo = st.text_input("Prazo")
+            pag = st.text_input("Pagamento")
+            rev = st.selectbox("Revisões", ["1", "2", "3", "Ilimitadas"])
+            obs = st.text_input("Obs")
             
-            if st.form_submit_button("SALVAR E PREPARAR PDF"):
-                if n and ser:
-                    v_metade = val / 2
-                    cursor = conn.cursor()
+            if st.form_submit_button("SALVAR"):
+                if nome and serv:
+                    v_metade = valor / 2
                     cursor.execute("""INSERT INTO projetos 
                         (cliente, servico, valor, status, data_inicio, mes_ano, telefone, 
                          financeiro, valor_entrada, status_entrada, valor_final, status_final, status_integral) 
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (n, ser, val, "Em Produção", datetime.now().strftime("%d/%m/%Y"), 
-                         datetime.now().strftime("%m/%Y"), tel, "Pendente", v_metade, "Pendente", v_metade, "Pendente", "Pendente"))
+                        (nome, serv, valor, "Em Produção", datetime.now().strftime("%d/%m/%Y"), 
+                         datetime.now().strftime("%m/%Y"), whats, "Pendente", v_metade, "Pendente", v_metade, "Pendente", "Pendente"))
                     conn.commit()
-                    st.session_state.pdf_data = gerar_pdf_orcamento(n, ser, val, pg, prz, rev, obs, info_para_pdf)
-                    st.session_state.pdf_nome = n
-                    st.success("Salvo com sucesso! Baixe o PDF abaixo.")
+                    st.session_state.pdf_bytes = gerar_pdf_orcamento(nome, serv, valor, pag, prazo, rev, obs, info_para_pdf)
+                    st.session_state.pdf_n = nome
+                    st.success("Salvo!")
                 else:
-                    st.error("Preencha Nome e Serviço!")
+                    st.error("Preencha Nome e Serviço")
 
-        if 'pdf_data' in st.session_state:
-            st.download_button("📥 BAIXAR ORÇAMENTO PDF", st.session_state.pdf_data, f"Orcamento_{st.session_state.pdf_nome}.pdf", "application/pdf")
+        if 'pdf_bytes' in st.session_state:
+            st.download_button("📥 BAIXAR PDF", st.session_state.pdf_bytes, f"Orcamento_{st.session_state.pdf_n}.pdf", "application/pdf")
 
     elif escolha == "Gestão de Projetos":
-        st.title("⚜️ Gestão de Jobs")
-        df = pd.read_
+        st.title("⚜️ Gestão")
+        df = pd.read_sql_query("SELECT * FROM projetos ORDER BY id DESC", conn)
+        for _, r in df.iterrows():
+            with st.expander(f"📌 {r['cliente']} - R$ {r['valor']:.2f}"):
+                s_int = st.selectbox("INTEGRAL", ["Pendente", "Recebido"], index=0 if r['status_integral'] == "Pendente" else 1, key=f"int{r['id']}")
+                st.write("---")
+                c1, c2, c3 = st.columns(3)
+                s_prod = c1.selectbox("Produção", ["Em Produção", "Finalizado"], index=0 if r['status'] == "Em Produção" else 1, key=f"p{r['id']}")
+                s_ent = c2.selectbox(f"Entrada", ["Pendente", "Recebido"], index=0 if r['status_entrada'] == "Pendente" else 1, key=f"e{r['id']}")
+                s_fin = c3.selectbox(f"Final", ["Pendente", "Recebido"], index=0 if r['status_final'] == "Pendente" else 1, key=f"f{r['id']}")
+                
+                if st.button("Salvar", key=f"btn{r['id']}"):
+                    if s_int == "Recebido": s_ent, s_fin = "Recebido", "Recebido"
+                    f_geral = "Recebido" if (s_int == "Recebido" or (s_ent == "Recebido" and s_fin == "Recebido")) else "Pendente"
+                    cursor.execute("""UPDATE projetos SET status=?, status_entrada=?, status_final=?, status_integral=?, financeiro=? WHERE id=?""",
+                                 (s_prod, s_ent, s_fin, s_int, f_geral, r['id']))
+                    conn.commit()
+                    st.rerun()
+                if st.button("Excluir", key=f"del{r['id']}"):
+                    cursor.execute("DELETE FROM projetos WHERE id=?", (r['id'],))
+                    conn.commit()
+                    st.rerun()
+
+    elif escolha == "Backup":
+        st.title("📦 Backup")
+        df = pd.read_sql_query("SELECT * FROM projetos", conn)
+        if not df.empty:
+            out = io.BytesIO()
+            with pd.ExcelWriter(out, engine='xlsxwriter') as wr:
+                df.to_excel(wr, index=False)
+            st.download_button("📥 EXCEL", out.getvalue(), "Backup.xlsx")
+
+    elif escolha == "Configurações":
+        st.title("⚙️ Config")
+        with st.form("c"):
+            n_s = st.text_input("Nome", config_data[0])
+            s_s = st.text_input("Slogan", config_data[1])
+            z_s = st.text_input("WhatsApp", config_data[2])
+            m_s = st.text_input("E-mail", config_data[3])
+            e_s = st.text_input("Endereço", config_data[4])
+            if st.form_submit_button("SALVAR"):
+                cursor.execute("UPDATE config SET nome_studio=?, sub_titulo=?, contato=?, email=?, endereco=? WHERE id=1", (n_s, s_s, z_s, m_s, e_s))
+                conn.commit()
+                st.rerun()
+    conn.close()
+
+if __name__ == "__main__":
+    main()
