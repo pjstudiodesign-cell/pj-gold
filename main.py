@@ -88,18 +88,23 @@ def main():
     aplicar_estilo_pj_gold()
     conn = sqlite3.connect('pj_gold_data.db'); cursor = conn.cursor()
     
-    # Inicialização de Tabelas
+    # Inicialização de Tabelas com colunas de Prazo e Pagamento
     cursor.execute('''CREATE TABLE IF NOT EXISTS projetos 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, servico TEXT, valor REAL, status TEXT, 
                        data_inicio TEXT, mes_ano TEXT, telefone TEXT, financeiro TEXT, valor_entrada REAL, 
-                       status_entrada TEXT, valor_final REAL, status_final TEXT, status_integral TEXT)''')
+                       status_entrada TEXT, valor_final REAL, status_final TEXT, status_integral TEXT,
+                       prazo_salvo TEXT, pagamento_salvo TEXT)''')
+    
+    # Migração para quem já tem o banco antigo
+    try: cursor.execute("ALTER TABLE projetos ADD COLUMN prazo_salvo TEXT")
+    except: pass
+    try: cursor.execute("ALTER TABLE projetos ADD COLUMN pagamento_salvo TEXT")
+    except: pass
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY, nome_studio TEXT, sub_titulo TEXT, contato TEXT, email TEXT, endereco TEXT)''')
     
     cursor.execute("SELECT nome_studio, sub_titulo, contato, email, endereco FROM config WHERE id=1")
     config_res = cursor.fetchone()
-    if not config_res:
-        cursor.execute("INSERT INTO config VALUES (1, 'PJ STUDIO DESIGN', 'Soluções Inteligentes', '24981196037', 'pj@gmail.com', 'Barra Mansa - RJ')")
-        conn.commit(); config_res = ('PJ STUDIO DESIGN', 'Soluções Inteligentes', '24981196037', 'pj@gmail.com', 'Barra Mansa - RJ')
     
     st.sidebar.title("⚜️ PJ GOLD")
     menu = ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"]
@@ -116,7 +121,7 @@ def main():
                 if r['status_integral'] == 'Recebido': total_rec += v_total
                 else:
                     entrada = v_ent if r['status_entrada'] == 'Recebido' else 0
-                    final = v_ent if r['status_final'] == 'Recebido' else 0 # valor_final é metade
+                    final = v_ent if r['status_final'] == 'Recebido' else 0
                     total_rec += (entrada + final)
                     total_pend += (v_total - (entrada + final))
         
@@ -131,11 +136,14 @@ def main():
             n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor Total", min_value=0.0)
             ser = st.text_area("Serviço")
-            prz = st.text_input("Prazo"); pag = st.text_input("Forma de Pagamento")
+            prz = st.text_input("Prazo", "7 dias úteis")
+            pag = st.text_input("Forma de Pagamento", "50% entrada / 50% entrega")
             if st.form_submit_button("SALVAR E GERAR PDF"):
                 v_m = v / 2
-                cursor.execute("INSERT INTO projetos (cliente, servico, valor, status, data_inicio, telefone, valor_entrada, status_entrada, valor_final, status_final, status_integral) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                             (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v_m, "Pendente", v_m, "Pendente", "Pendente"))
+                cursor.execute("""INSERT INTO projetos (cliente, servico, valor, status, data_inicio, telefone, 
+                                 valor_entrada, status_entrada, valor_final, status_final, status_integral, 
+                                 prazo_salvo, pagamento_salvo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                             (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v_m, "Pendente", v_m, "Pendente", "Pendente", prz, pag))
                 conn.commit()
                 st.session_state.pdf_b = gerar_pdf_orcamento(n, ser, v, pag, prz, "Padrão", "", config_res)
                 st.session_state.pdf_n = n
@@ -160,11 +168,12 @@ def main():
                     cursor.execute("UPDATE projetos SET status_entrada=?, status_final=?, status_integral=? WHERE id=?", (s_ent, s_fin, s_int, r['id']))
                     conn.commit(); st.rerun()
                 
-                # BOTÃO PARA REEMITIR O MESMO ORÇAMENTO
-                pdf_re = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], "Combinado", "Verificar", "Padrão", "", config_res)
+                # RE-ORÇAMENTO BUSCANDO OS DADOS SALVOS
+                p_salvo = r['prazo_salvo'] if r['prazo_salvo'] else "A combinar"
+                pg_salvo = r['pagamento_salvo'] if r['pagamento_salvo'] else "A combinar"
+                pdf_re = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], pg_salvo, p_salvo, "Padrão", "", config_res)
                 col_b.download_button("📄 Re-Orcamento", pdf_re, f"Orcamento_{r['cliente']}.pdf", key=f"re{r['id']}")
                 
-                # BOTÃO PARA GERAR RECIBO
                 v_rec = r['valor'] if s_int == "Recebido" else r['valor_entrada']
                 pdf_rec = gerar_pdf_recibo(r['cliente'], r['servico'], v_rec, config_res)
                 col_c.download_button("🧾 Recibo", pdf_rec, f"Recibo_{r['cliente']}.pdf", key=f"rec{r['id']}")
@@ -175,9 +184,7 @@ def main():
     elif escolha == "Configurações":
         st.title("⚙️ Configurações")
         with st.form("cfg"):
-            n_s = st.text_input("Nome Studio", config_res[0])
-            t_s = st.text_input("WhatsApp", config_res[2])
-            e_s = st.text_input("Endereço", config_res[4])
+            n_s = st.text_input("Nome Studio", config_res[0]); t_s = st.text_input("WhatsApp", config_res[2]); e_s = st.text_input("Endereço", config_res[4])
             if st.form_submit_button("Salvar"):
                 cursor.execute("UPDATE config SET nome_studio=?, contato=?, endereco=? WHERE id=1", (n_s, t_s, e_s))
                 conn.commit(); st.rerun()
