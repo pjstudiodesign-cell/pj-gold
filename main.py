@@ -3,7 +3,6 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
-import os
 
 # 1. Configuração da Página
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
@@ -35,12 +34,16 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 3. Conexão Blindada com Google Sheets
-# Substitui o SQLite para os dados nunca mais sumirem
+# 3. Conexão Blindada - LINK ATUALIZADO
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PduECxYhVlp8QC5lTu2nasRQbBPGtDI8vEhs1qL6IgE"
+
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def buscar_dados():
-    return conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/1Zt6iC9D9fC9W3Ea_Z0I6_kI1R4u_F9mS3A0Q7K9R8E0", worksheet="Projetos")
+    try:
+        return conn.read(spreadsheet=URL_PLANILHA, worksheet="Projetos")
+    except:
+        return pd.DataFrame(columns=["cliente", "servico", "valor", "status", "data_inicio", "telefone", "status_entrada", "status_final", "status_integral", "prazo_salvo", "pagamento_salvo", "revisao_salva", "obs_salva"])
 
 # 4. Geração de PDF (MANTIDO INTEGRALMENTE)
 def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
@@ -49,20 +52,15 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
         pdf.add_page()
         pdf.set_fill_color(20, 20, 20)
         pdf.rect(0, 0, 210, 65, 'F')
-        pdf.set_y(12)
-        pdf.set_font("Arial", 'B', 20)
-        pdf.set_text_color(212, 175, 55)
+        pdf.set_y(12); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(212, 175, 55)
         pdf.cell(0, 12, "PJ Gold", ln=True, align='C')
-        pdf.set_font("Arial", 'I', 10)
-        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Arial", 'I', 10); pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 6, "Elite Service", ln=True, align='C')
         pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
         pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
         pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
         pdf.ln(10); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
         pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
-        if obs:
-            pdf.ln(2); pdf.set_font("Arial", 'B', 11); pdf.cell(10, 7, "Obs: "); pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
         pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. CONDICOES", ln=True)
         pdf.set_font("Arial", '', 11); pdf.cell(0, 8, f"- Prazo: {prazo} | Revisões: {rev}", ln=True)
         pdf.cell(0, 8, f"- Forma de Pagamento: {pgto}", ln=True)
@@ -71,41 +69,22 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
-def gerar_pdf_recibo(cliente, servico, valor):
-    try:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_draw_color(212, 175, 55); pdf.rect(5, 5, 200, 120)
-        pdf.set_font("Arial", 'B', 18); pdf.set_y(15); pdf.cell(0, 15, "RECIBO DE PAGAMENTO", ln=True, align='C')
-        pdf.ln(10); pdf.set_font("Arial", '', 12)
-        texto = f"Recebemos de {str(cliente).upper()}, a importância de R$ {valor:,.2f} referente ao serviço de: {servico}."
-        pdf.multi_cell(0, 10, texto, align='L')
-        pdf.ln(10); pdf.cell(0, 10, f"Data: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='R')
-        pdf.ln(15); pdf.cell(0, 10, "__________________________________________________", ln=True, align='C')
-        pdf.set_font("Arial", 'B', 10); pdf.cell(0, 5, "PJ Gold", ln=True, align='C')
-        return pdf.output(dest='S').encode('latin-1', 'ignore')
-    except: return None
-
 # 5. Interface Principal
 def main():
     aplicar_estilo()
-    
     st.sidebar.title("⚜️ PJ Gold Studio")
     menu = ["Painel", "Novo Job", "Gestão de Projetos"]
     escolha = st.sidebar.radio("Navegar:", menu)
 
-    # Carregar dados da planilha
     df = buscar_dados()
 
     if escolha == "Painel":
         st.title("⚜️ Painel PJ Gold")
-        total_rec = 0.0
-        if not df.empty:
+        total_rec = 0.0; total_pend = 0.0
+        if not df.empty and 'status_integral' in df.columns:
+            df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
             total_rec = df[df['status_integral'] == 'Recebido']['valor'].sum()
             total_pend = df['valor'].sum() - total_rec
-        else:
-            total_pend = 0.0
-            
         col1, col2 = st.columns(2)
         with col1: st.metric("Total em Caixa", f"R$ {total_rec:,.2f}")
         with col2: st.metric("A Receber", f"R$ {total_pend:,.2f}")
@@ -119,40 +98,24 @@ def main():
             c3, c4, c5 = st.columns(3); prz = c3.text_input("Prazo", "10 dias úteis")
             rev = c4.selectbox("Revisões", ["Padrão", "1", "2", "3", "Ilimitadas"])
             pag = c5.text_input("Pagamento", "50% entrada / 50% entrega")
-            
             if st.form_submit_button("SALVAR NA NUVEM"):
                 if n and ser:
-                    novo_job = pd.DataFrame([{
-                        "cliente": n, "servico": ser, "valor": v, "status": "Em Produção",
-                        "data_inicio": datetime.now().strftime("%d/%m/%Y"), "telefone": tel,
-                        "status_entrada": "Pendente", "status_final": "Pendente", "status_integral": "Pendente",
-                        "prazo_salvo": prz, "pagamento_salvo": pag, "revisao_salva": rev, "obs_salva": obs_in
-                    }])
-                    updated_df = pd.concat([df, novo_job], ignore_index=True)
-                    conn.update(spreadsheet="https://docs.google.com/spreadsheets/d/1Zt6iC9D9fC9W3Ea_Z0I6_kI1R4u_F9mS3A0Q7K9R8E0", data=updated_df)
-                    st.success("Orçamento Salvo na Planilha Google!")
-                    st.rerun()
+                    novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel,"status_entrada":"Pendente","status_final":"Pendente","status_integral":"Pendente","prazo_salvo":prz,"pagamento_salvo":pag,"revisao_salva":rev,"obs_salva":obs_in}])
+                    updated_df = pd.concat([df, novo], ignore_index=True)
+                    conn.update(spreadsheet=URL_PLANILHA, data=updated_df)
+                    st.success("Salvo com sucesso!"); st.rerun()
 
     elif escolha == "Gestão de Projetos":
         st.title("⚜️ Gestão e Financeiro")
-        if df.empty:
-            st.info("Nenhum projeto encontrado.")
+        if df.empty: st.info("Sem projetos salvos na nuvem.")
         else:
-            for index, r in df.iterrows():
-                with st.expander(f"📌 {r['cliente']} | R$ {r['valor']:.2f}"):
+            for i, r in df.iterrows():
+                with st.expander(f"📌 {r['cliente']}"):
                     st.write(f"**Serviço:** {r['servico']}")
-                    col1, col2, col3 = st.columns(3)
-                    s_int = col1.selectbox("Integral", ["Pendente", "Recebido"], index=0 if r['status_integral'] == "Pendente" else 1, key=f"i{index}")
-                    
-                    c_at, c_orc, c_rec, c_del = st.columns(4)
-                    if c_at.button("Atualizar Status", key=f"at{index}"):
-                        df.at[index, 'status_integral'] = s_int
-                        conn.update(spreadsheet="https://docs.google.com/spreadsheets/d/1Zt6iC9D9fC9W3Ea_Z0I6_kI1R4u_F9mS3A0Q7K9R8E0", data=df)
-                        st.rerun()
-                    
-                    if c_orc.button("Gerar PDF", key=f"pdf{index}"):
-                        pdf_o = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
-                        st.download_button("Baixar", pdf_o, f"Orcamento_{r['cliente']}.pdf", key=f"dl{index}")
+                    if st.button("Gerar Orçamento PDF", key=f"pdf_btn_{i}"):
+                        pdf_data = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
+                        if pdf_data:
+                            st.download_button("Clique para Baixar", pdf_data, f"Orc_{r['cliente']}.pdf", key=f"dl_{i}")
 
 if __name__ == "__main__":
     main()
