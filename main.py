@@ -7,7 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 # 1. Configuração da Página
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
-# 2. Estilo Visual PJ GOLD (Fundo Preto e Detalhes Ouro)
+# 2. Estilo Visual PJ GOLD
 def aplicar_estilo():
     st.markdown("""
         <style>
@@ -47,7 +47,7 @@ def ler_dados_projetos():
     try:
         return conn.read(worksheet="Página1", ttl=0)
     except:
-        return pd.DataFrame(columns=["id", "cliente", "servico", "valor", "status_integral", "prazo", "pagamento"])
+        return pd.DataFrame(columns=["id", "cliente", "servico", "valor", "status_integral", "prazo", "pagamento", "obs"])
 
 def ler_config():
     try:
@@ -58,8 +58,8 @@ def ler_config():
         pass
     return {"nome_studio": "PJ GOLD", "slogan": "Elite Service", "contato": "", "email": "", "endereco": ""}
 
-# 4. Funções de PDF (Agora usando os dados das Configurações)
-def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, info_empresa):
+# 4. Funções de PDF
+def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, obs, info_empresa):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_fill_color(10, 10, 10); pdf.rect(0, 0, 210, 65, 'F')
@@ -75,7 +75,11 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, info_empresa):
     pdf.ln(10); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "1. ESCOPO DO SERVICO", ln=True)
     pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
     
-    pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. CONDICOES", ln=True)
+    if obs:
+        pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. EXIGENCIAS / OBSERVACOES", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
+    
+    pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "3. CONDICOES", ln=True)
     pdf.set_font("Arial", '', 11); pdf.cell(0, 8, f"- Prazo: {prazo} | Pagamento: {pgto}", ln=True)
     
     pdf.set_y(-45); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(184, 134, 11)
@@ -101,40 +105,52 @@ def main():
             c1, c2 = st.columns(2)
             c1.metric("Total Recebido", f"R$ {total_rec:,.2f}")
             c2.metric("A Receber", f"R$ {total_pend:,.2f}")
-        else: st.info("Sem dados.")
+        else: st.info("Sem dados na planilha.")
 
     elif escolha == "Novo Job":
         st.title("➕ Novo Contrato")
         with st.form("orc"):
-            n = st.text_input("Cliente"); v = st.number_input("Valor", min_value=0.0)
-            ser = st.text_area("Serviço"); prz = st.text_input("Prazo", "7 dias")
-            pag = st.text_input("Pagamento", "50/50")
-            if st.form_submit_button("SALVAR"):
-                nova = pd.DataFrame([{"id": len(df)+1, "cliente": n, "servico": ser, "valor": v, "status_integral": "Pendente", "prazo": prz, "pagamento": pag}])
+            col1, col2 = st.columns(2)
+            n = col1.text_input("Cliente")
+            v = col2.number_input("Valor", min_value=0.0)
+            ser = st.text_area("Descrição do Serviço")
+            ob_cli = st.text_area("Exigências ou Observações do Cliente")
+            
+            col3, col4 = st.columns(2)
+            prz = col3.text_input("Prazo", "7 dias")
+            pag = col4.text_input("Pagamento", "50/50")
+            
+            if st.form_submit_button("SALVAR E GERAR"):
+                nova = pd.DataFrame([{"id": len(df)+1, "cliente": n, "servico": ser, "valor": v, "status_integral": "Pendente", "prazo": prz, "pagamento": pag, "obs": ob_cli}])
                 conn.update(worksheet="Página1", data=pd.concat([df, nova], ignore_index=True))
-                st.success("Salvo!"); st.rerun()
+                st.success("Job Salvo com Sucesso!"); st.rerun()
 
     elif escolha == "Gestão de Projetos":
-        st.title("📂 Projetos")
-        for i, r in df.iterrows():
-            with st.expander(f"⚜️ {r['cliente']}"):
-                status = st.selectbox("Status", ["Pendente", "Recebido"], index=0 if r['status_integral']=="Pendente" else 1, key=f"s{i}")
-                if st.button("Atualizar", key=f"u{i}"):
-                    df.at[i, 'status_integral'] = status
-                    conn.update(worksheet="Página1", data=df); st.rerun()
-                pdf = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento'], r['prazo'], info_f)
-                st.download_button("Baixar PDF", pdf, f"Orc_{r['cliente']}.pdf", key=f"p{i}")
+        st.title("📂 Controle de Projetos")
+        if not df.empty:
+            for i, r in df.iterrows():
+                with st.expander(f"⚜️ {r['cliente']} | R$ {r['valor']}"):
+                    st.write(f"**Serviço:** {r['servico']}")
+                    if 'obs' in r and r['obs']:
+                        st.write(f"**Exigências:** {r['obs']}")
+                    
+                    status = st.selectbox("Status", ["Pendente", "Recebido"], index=0 if r['status_integral']=="Pendente" else 1, key=f"s{i}")
+                    if st.button("Atualizar Status", key=f"u{i}"):
+                        df.at[i, 'status_integral'] = status
+                        conn.update(worksheet="Página1", data=df); st.rerun()
+                    
+                    obs_val = r['obs'] if 'obs' in r else ""
+                    pdf = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento'], r['prazo'], obs_val, info_f)
+                    st.download_button("Baixar PDF", pdf, f"Orc_{r['cliente']}.pdf", key=f"p{i}")
+        else: st.warning("Nenhum projeto encontrado.")
 
     elif escolha == "Configurações":
-        st.title("⚙️ Dados da Empresa")
+        st.title("⚙️ Configurações do Studio")
         with st.form("conf"):
             nome = st.text_input("Nome do Studio", info_f['nome_studio'])
             slogan = st.text_input("Slogan", info_f['slogan'])
-            whats = st.text_input("WhatsApp", info_f['contato'])
-            mail = st.text_input("E-mail", info_f['email'])
-            end = st.text_area("Endereço", info_f['endereco'])
-            if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
-                df_conf = pd.DataFrame([{"nome_studio": nome, "slogan": slogan, "contato": whats, "email": mail, "endereco": end}])
+            if st.form_submit_button("SALVAR CONFIGS"):
+                df_conf = pd.DataFrame([{"nome_studio": nome, "slogan": slogan, "contato": "", "email": "", "endereco": ""}])
                 conn.update(worksheet="Config", data=df_conf)
                 st.success("Configurações atualizadas!"); st.rerun()
 
