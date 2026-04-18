@@ -4,7 +4,7 @@ from datetime import datetime
 from fpdf import FPDF
 from streamlit_gsheets import GSheetsConnection
 
-# 1. Configuração e Estilo PJ GOLD
+# 1. Configuração de Estilo PJ GOLD (Foco em Autoridade e Precisão)
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -17,13 +17,13 @@ def aplicar_estilo():
             background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%) !important;
             color: #000000 !important; font-weight: bold !important; border-radius: 8px !important;
         }
-        .stTextInput>div>div>input, .stTextArea>div>div>textarea {
+        .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stNumberInput>div>div>input {
             background-color: #1a1a1a !important; color: #FFD700 !important; border: 1px solid #333 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão
+# 2. Conexão com Google Sheets (Garantia de que nada se perde)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados(aba):
@@ -33,39 +33,54 @@ def ler_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. PDF Profissional
-def gerar_pdf(c, t, s, v, info):
+# 3. Gerador de PDF com Dados Completos
+def gerar_pdf(dados, info):
     pdf = FPDF()
     pdf.add_page()
+    # Cabeçalho Gold
     pdf.set_fill_color(10, 10, 10); pdf.rect(0, 0, 210, 55, 'F')
     pdf.set_y(15); pdf.set_font("Arial", 'B', 22); pdf.set_text_color(255, 215, 0)
     pdf.cell(0, 10, str(info.get('nome_studio', 'PJ GOLD')).upper(), ln=True, align='C')
-    pdf.set_y(70); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"ORÇAMENTO PARA: {c.upper()}", ln=True)
+    
+    # Detalhes do Orçamento
+    pdf.set_y(65); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, f"ORÇAMENTO: {dados['n'].upper()}", ln=True)
     pdf.set_font("Arial", '', 11)
-    pdf.multi_cell(0, 8, f"Serviço: {s}\nWhatsApp: {t}\nValor Total: R$ {v:,.2f}")
+    conteudo = (
+        f"Serviço: {dados['s']}\n"
+        f"WhatsApp: {dados['t']}\n"
+        f"Valor Total: R$ {dados['v']:,.2f}\n"
+        f"Prazo de Entrega: {dados['prz']}\n"
+        f"Forma de Pagamento: {dados['pgt']}\n"
+        f"Observações: {dados['obs']}"
+    )
+    pdf.multi_cell(0, 8, conteudo)
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
-# 4. App Principal
+# 4. Interface Principal
 def main():
     aplicar_estilo()
     df_p = ler_dados("Página1")
     df_c = ler_dados("Config")
     
+    # Busca configurações gravadas
     info = df_c.iloc[0].to_dict() if not df_c.empty else {"nome_studio": "PJ GOLD"}
     
     st.sidebar.title(f"⚜️ {info.get('nome_studio', 'PJ GOLD')}")
     menu = st.sidebar.radio("Navegar", ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"])
 
     if menu == "Painel":
-        st.title(f"📊 Painel {info.get('nome_studio')}")
+        st.title(f"📊 Painel Financeiro")
+        # Cálculo dinâmico baseado no que está salvo na planilha
+        valor_caixa = pd.to_numeric(df_p['valor'], errors='coerce').sum() if not df_p.empty else 0.0
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Dinheiro em Caixa", f"R$ {valor_caixa:,.2f}")
+        c2.metric("Dinheiro a Receber", "R$ 0.00")
+        st.write("---")
         if not df_p.empty:
-            df_p['valor'] = pd.to_numeric(df_p['valor'], errors='coerce').fillna(0)
-            col1, col2 = st.columns(2)
-            col1.metric("Total em Caixa", f"R$ {df_p['valor'].sum():,.2f}")
-            col2.metric("A Receber", "R$ 0.00")
-            st.write("---")
-            st.dataframe(df_p, use_container_width=True)
+            st.write("Últimas Movimentações:")
+            st.dataframe(df_p.tail(5), use_container_width=True)
 
     elif menu == "Novo Job":
         st.title("➕ Novo Orçamento")
@@ -73,42 +88,59 @@ def main():
             c1, c2 = st.columns(2)
             n = c1.text_input("Nome do Cliente")
             tel = c2.text_input("WhatsApp")
-            v = st.number_input("Valor do Serviço", min_value=0.0)
+            
+            c3, c4 = st.columns(2)
+            v = c3.number_input("Valor do Serviço", min_value=0.0)
+            prz = c4.text_input("Prazo de Entrega (Ex: 5 dias úteis)")
+            
+            pgt = st.text_input("Forma de Pagamento (Ex: 50% entrada + 50% entrega)")
             ser = st.text_area("Descrição do Serviço")
-            obs = st.text_area("Observações")
-            if st.form_submit_button("SALVAR E GERAR PDF"):
-                try:
-                    nova = pd.DataFrame([{"id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "obs": obs, "data": datetime.now().strftime('%d/%m/%Y')}])
-                    df_up = pd.concat([df_p, nova], ignore_index=True)
-                    conn.update(worksheet="Página1", data=df_up)
-                    st.success("✅ Orçamento salvo!")
-                    st.session_state['pdf_pronto'] = {"n":n,"t":tel,"s":ser,"v":v}
-                except: st.error("Erro de Permissão: Altere o Google Sheets para 'Editor'.")
+            obs = st.text_area("Observações Adicionais")
+            
+            if st.form_submit_button("SALVAR NO SISTEMA E GERAR PDF"):
+                if n and v > 0:
+                    try:
+                        novo_reg = pd.DataFrame([{
+                            "id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, 
+                            "valor": v, "prazo": prz, "pagamento": pgt, "obs": obs, 
+                            "data": datetime.now().strftime('%d/%m/%Y')
+                        }])
+                        df_final = pd.concat([df_p, novo_reg], ignore_index=True)
+                        conn.update(worksheet="Página1", data=df_final)
+                        st.success("✅ Orçamento gravado na planilha com sucesso!")
+                        st.session_state['orc_atual'] = {"n":n,"t":tel,"s":ser,"v":v,"prz":prz,"pgt":pgt,"obs":obs}
+                    except:
+                        st.error("Erro ao gravar. Certifique-se que o acesso no Google Sheets está como 'Editor'.")
+                else:
+                    st.warning("Preencha o nome do cliente e o valor.")
 
-        if 'pdf_pronto' in st.session_state:
-            p = st.session_state['pdf_pronto']
-            bytes_pdf = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
-            st.download_button("📩 BAIXAR PDF DO CLIENTE", bytes_pdf, f"Orc_{p['n']}.pdf")
+        if 'orc_atual' in st.session_state:
+            dados = st.session_state['orc_atual']
+            pdf_arq = gerar_pdf(dados, info)
+            st.download_button("📩 BAIXAR ORÇAMENTO (PDF)", pdf_arq, f"Orc_{dados['n']}.pdf")
 
     elif menu == "Gestão de Projetos":
-        st.title("📋 Gestão de Projetos")
+        st.title("📋 Histórico de Orçamentos")
         if not df_p.empty:
             st.dataframe(df_p, use_container_width=True)
+        else:
+            st.info("Nenhum orçamento cadastrado ainda.")
 
     elif menu == "Configurações":
-        st.title("⚙️ Configurações da Empresa")
+        st.title("⚙️ Configurações da PJ Studio")
         with st.form("f_conf"):
             nome = st.text_input("Nome do Studio", info.get('nome_studio', ''))
             slogan = st.text_input("Slogan", info.get('slogan', ''))
             zap = st.text_input("WhatsApp de Contato", info.get('contato', ''))
             mail = st.text_input("E-mail", info.get('email', ''))
             end = st.text_area("Endereço Completo", info.get('endereco', ''))
-            if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
+            if st.form_submit_button("ATUALIZAR DADOS DA EMPRESA"):
                 try:
-                    df_nc = pd.DataFrame([{"nome_studio":nome, "slogan":slogan, "contato":zap, "email":mail, "endereco":end}])
-                    conn.update(worksheet="Config", data=df_nc)
-                    st.success("✅ Configurações atualizadas!"); st.rerun()
-                except: st.error("Erro ao salvar.")
+                    df_conf_nova = pd.DataFrame([{"nome_studio":nome, "slogan":slogan, "contato":zap, "email":mail, "endereco":end}])
+                    conn.update(worksheet="Config", data=df_conf_nova)
+                    st.success("✅ Dados atualizados!"); st.rerun()
+                except:
+                    st.error("Erro ao salvar configurações.")
 
 if __name__ == "__main__":
     main()
