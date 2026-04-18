@@ -4,7 +4,7 @@ from datetime import datetime
 from fpdf import FPDF
 from streamlit_gsheets import GSheetsConnection
 
-# 1. Configuração Visual PJ GOLD / SaarteSvm
+# 1. Interface e Estilo PJ GOLD
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -24,7 +24,7 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão com a Planilha (Link simplificado nos Secrets é essencial)
+# 2. Conexão e Leitura
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados(aba):
@@ -34,7 +34,7 @@ def ler_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. Função de PDF Profissional
+# 3. PDF
 def gerar_pdf(c, t, s, v, info):
     pdf = FPDF()
     pdf.add_page()
@@ -47,28 +47,23 @@ def gerar_pdf(c, t, s, v, info):
     pdf.multi_cell(0, 8, f"Serviço: {s}\nWhatsApp: {t}\nValor Total: R$ {v:,.2f}")
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
-# 4. Interface Principal
+# 4. App
 def main():
     aplicar_estilo()
-    df_projetos = ler_dados("Página1")
-    df_config = ler_dados("Config")
+    df_p = ler_dados("Página1")
+    df_c = ler_dados("Config")
     
-    # Carregar configurações salvas ou usar padrão
-    info = df_config.iloc[0].to_dict() if not df_config.empty else {"nome_studio": "PJ GOLD", "slogan": "Elite Service"}
+    info = df_c.iloc[0].to_dict() if not df_c.empty else {"nome_studio": "PJ GOLD"}
     
     st.sidebar.title(f"⚜️ {info.get('nome_studio')}")
-    menu = st.sidebar.radio("Navegar", ["Painel", "Novo Job", "Configurações"])
+    menu = st.sidebar.radio("Navegar", ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"])
 
     if menu == "Painel":
         st.title(f"📊 Painel {info.get('nome_studio')}")
-        if not df_projetos.empty:
-            # Garante que a coluna valor é numérica para o cálculo
-            df_projetos['valor'] = pd.to_numeric(df_projetos['valor'], errors='coerce').fillna(0)
-            total = df_projetos['valor'].sum()
-            st.metric("Total em Orçamentos", f"R$ {total:,.2f}")
-            st.dataframe(df_projetos, use_container_width=True)
-        else:
-            st.warning("Nenhum dado encontrado na planilha Página1.")
+        if not df_p.empty:
+            df_p['valor'] = pd.to_numeric(df_p['valor'], errors='coerce').fillna(0)
+            st.metric("Total em Orçamentos", f"R$ {df_p['valor'].sum():,.2f}")
+            st.dataframe(df_p, use_container_width=True)
 
     elif menu == "Novo Job":
         st.title("➕ Novo Orçamento")
@@ -78,36 +73,30 @@ def main():
             tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor do Serviço", min_value=0.0)
             ser = st.text_area("Descrição do Serviço")
+            obs = st.text_area("Observações")
             if st.form_submit_button("SALVAR E GERAR PDF"):
-                if n and ser:
-                    try:
-                        nova_linha = pd.DataFrame([{"id": len(df_projetos)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "data": datetime.now().strftime('%d/%m/%Y')}])
-                        df_atualizado = pd.concat([df_projetos, nova_linha], ignore_index=True)
-                        conn.update(worksheet="Página1", data=df_atualizado)
-                        st.success("✅ Orçamento salvo na planilha!")
-                        st.session_state['pdf_data'] = {"n": n, "t": tel, "s": ser, "v": v}
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: Verifique se a aba 'Página1' existe na planilha.")
-                else:
-                    st.error("Preencha o nome do cliente e o serviço.")
+                try:
+                    nova = pd.DataFrame([{"id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "obs": obs, "data": datetime.now().strftime('%d/%m/%Y')}])
+                    df_up = pd.concat([df_p, nova], ignore_index=True)
+                    conn.update(worksheet="Página1", data=df_up)
+                    st.success("Salvo!")
+                    st.session_state['pdf'] = {"n":n,"t":tel,"s":ser,"v":v}
+                except: st.error("Erro de permissão no Sheets.")
 
-        if 'pdf_data' in st.session_state:
-            p = st.session_state['pdf_data']
-            pdf_arq = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
-            st.download_button("📩 BAIXAR PDF DO ORÇAMENTO", pdf_arq, f"Orcamento_{p['n']}.pdf")
+        if 'pdf' in st.session_state:
+            p = st.session_state['pdf']
+            arq = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
+            st.download_button("📩 BAIXAR PDF", arq, f"Orc_{p['n']}.pdf")
+
+    elif menu == "Gestão de Projetos":
+        st.title("📋 Gestão de Projetos")
+        if not df_p.empty:
+            st.dataframe(df_p, use_container_width=True)
 
     elif menu == "Configurações":
         st.title("⚙️ Configurações da Empresa")
         with st.form("f_conf"):
-            nome = st.text_input("Nome do Studio/Empresa", info.get('nome_studio', ''))
-            slogan = st.text_input("Slogan ou Subtítulo", info.get('slogan', ''))
-            if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
-                try:
-                    df_novo_conf = pd.DataFrame([{"nome_studio": nome, "slogan": slogan}])
-                    conn.update(worksheet="Config", data=df_novo_conf)
-                    st.success("Configurações atualizadas!"); st.rerun()
-                except:
-                    st.error("Erro: Verifique se a aba 'Config' existe na sua planilha.")
-
-if __name__ == "__main__":
-    main()
+            nome = st.text_input("Nome do Studio", info.get('nome_studio', ''))
+            slogan = st.text_input("Slogan", info.get('slogan', ''))
+            zap = st.text_input("WhatsApp", info.get('contato', ''))
+            mail = st.text_input("E-
