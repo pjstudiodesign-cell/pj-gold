@@ -21,6 +21,17 @@ def aplicar_estilo():
             font-weight: bold !important;
         }
         h1, h2, h3, p, span { color: #FFD700 !important; }
+        
+        /* Estilização das Métricas (Dashboard) */
+        [data-testid="stMetricValue"] { color: #FFD700 !important; font-size: 2.5rem !important; }
+        [data-testid="stMetricLabel"] { color: #ffffff !important; font-weight: bold !important; }
+        div[data-testid="metric-container"] {
+            background-color: #111111;
+            border: 1px solid #333;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
         .stButton>button, .stDownloadButton>button {
             background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%) !important;
             color: #000000 !important;
@@ -35,8 +46,6 @@ def aplicar_estilo():
             color: #FFD700 !important;
             border: 1px solid #333 !important;
         }
-        [data-testid="stMetricValue"] { color: #FFD700 !important; }
-        [data-testid="stMetricLabel"] { color: #ffffff !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -45,7 +54,10 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados_projetos():
     try:
-        return conn.read(worksheet="Página1", ttl=0)
+        df = conn.read(worksheet="Página1", ttl=0)
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["id", "cliente", "servico", "valor", "status_integral", "prazo", "pagamento", "obs", "telefone"])
+        return df
     except:
         return pd.DataFrame(columns=["id", "cliente", "servico", "valor", "status_integral", "prazo", "pagamento", "obs", "telefone"])
 
@@ -71,8 +83,7 @@ def gerar_pdf_orcamento(cliente, telefone, servico, valor, pgto, prazo, obs, inf
     pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 11)
     pdf.cell(100, 8, f"CLIENTE: {str(cliente).upper()}", ln=0)
     pdf.cell(0, 8, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
-    if telefone:
-        pdf.cell(0, 8, f"CONTATO: {telefone}", ln=1)
+    if telefone: pdf.cell(0, 8, f"CONTATO: {telefone}", ln=1)
     
     pdf.ln(5); pdf.set_font("Arial", 'B', 13); pdf.cell(0, 10, "1. ESCOPO DO SERVICO", ln=True)
     pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
@@ -99,64 +110,74 @@ def main():
     escolha = st.sidebar.radio("Navegar:", menu)
 
     if escolha == "Painel":
-        st.title("💰 Dashboard de Elite")
-        if not df.empty:
+        st.title(f"💰 Painel {info_f['nome_studio']}")
+        
+        # Dashboard sempre zerado por padrão
+        total_rec = 0.0
+        total_pend = 0.0
+        
+        if not df.empty and 'valor' in df.columns:
             df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
             total_rec = df[df['status_integral'] == 'Recebido']['valor'].sum()
             total_pend = df[df['status_integral'] != 'Recebido']['valor'].sum()
-            c1, c2 = st.columns(2)
-            c1.metric("Total em Caixa (Ouro)", f"R$ {total_rec:,.2f}")
-            c2.metric("A Receber", f"R$ {total_pend:,.2f}")
-            st.markdown("### Jobs Recentes")
-            st.dataframe(df[['cliente', 'valor', 'status_integral']].tail(5), use_container_width=True)
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Total em Caixa (Ouro)", f"R$ {total_rec:,.2f}")
+        c2.metric("A Receber", f"R$ {total_pend:,.2f}")
+        
+        st.markdown("---")
+        if not df.empty:
+            st.markdown("### Histórico de Projetos")
+            st.dataframe(df[['cliente', 'valor', 'status_integral']].tail(10), use_container_width=True)
         else:
-            st.info("Aguardando o primeiro registro na planilha...")
+            st.write("Inicie um novo contrato para atualizar o Dashboard.")
 
     elif escolha == "Novo Job":
         st.title("➕ Novo Contrato")
         with st.form("orc"):
             c1, c2 = st.columns(2)
             n = c1.text_input("Nome do Cliente")
-            t = c2.text_input("WhatsApp/Contato")
+            t = c2.text_input("WhatsApp do Cliente")
             
             cv, cp = st.columns(2)
             v = cv.number_input("Valor do Investimento", min_value=0.0)
-            prz = cp.text_input("Prazo de Entrega", "7 dias")
+            prz = cp.text_input("Prazo de Entrega", "7 dias úteis")
             
             ser = st.text_area("Descrição do Serviço")
-            ob_cli = st.text_area("Exigências ou Observações")
+            ob_cli = st.text_area("Exigências/Observações do Cliente")
             pag = st.text_input("Condição de Pagamento", "50% entrada / 50% entrega")
             
             if st.form_submit_button("SALVAR E GERAR"):
-                nova = pd.DataFrame([{"id": len(df)+1, "cliente": n, "telefone": t, "servico": ser, "valor": v, "status_integral": "Pendente", "prazo": prz, "pagamento": pag, "obs": ob_cli}])
-                conn.update(worksheet="Página1", data=pd.concat([df, nova], ignore_index=True))
-                st.success("✅ Ouro Guardado! Dados na planilha."); st.rerun()
+                if n and ser:
+                    nova = pd.DataFrame([{"id": len(df)+1, "cliente": n, "telefone": t, "servico": ser, "valor": v, "status_integral": "Pendente", "prazo": prz, "pagamento": pag, "obs": ob_cli}])
+                    conn.update(worksheet="Página1", data=pd.concat([df, nova], ignore_index=True))
+                    st.success("✅ Ouro Guardado! Dados salvos na nuvem."); st.rerun()
+                else: st.warning("Preencha ao menos Nome e Descrição!")
 
     elif escolha == "Gestão de Projetos":
-        st.title("📂 Controle de Fluxo")
+        st.title("📂 Controle de Projetos")
         if not df.empty:
             for i, r in df.iterrows():
                 with st.expander(f"⚜️ {r['cliente']} | {r.get('telefone', '')}"):
                     st.write(f"**Serviço:** {r['servico']}")
-                    st.write(f"**Obs:** {r.get('obs', 'Nenhuma')}")
+                    if 'obs' in r and r['obs']: st.write(f"**Obs:** {r['obs']}")
                     c1, c2, c3 = st.columns(3)
                     status = c1.selectbox("Financeiro", ["Pendente", "Recebido"], index=0 if r['status_integral']=="Pendente" else 1, key=f"s{i}")
-                    if c2.button("Atualizar", key=f"u{i}"):
+                    if c2.button("Atualizar Status", key=f"u{i}"):
                         df.at[i, 'status_integral'] = status
                         conn.update(worksheet="Página1", data=df); st.rerun()
                     pdf = gerar_pdf_orcamento(r['cliente'], r.get('telefone',''), r['servico'], r['valor'], r['pagamento'], r['prazo'], r.get('obs',''), info_f)
-                    c3.download_button("Baixar PDF", pdf, f"Orc_{r['cliente']}.pdf", key=f"p{i}")
-        else: st.warning("Sem projetos.")
+                    c3.download_button("📩 PDF", pdf, f"Orc_{r['cliente']}.pdf", key=f"p{i}")
+        else: st.warning("Nenhum projeto registrado.")
 
     elif escolha == "Configurações":
-        st.title("⚙️ Dados do Studio")
+        st.title("⚙️ Configurações")
         with st.form("conf"):
             nome = st.text_input("Nome do Studio", info_f['nome_studio'])
             slogan = st.text_input("Slogan", info_f['slogan'])
-            if st.form_submit_button("SALVAR CONFIGS"):
+            if st.form_submit_button("SALVAR"):
                 df_conf = pd.DataFrame([{"nome_studio": nome, "slogan": slogan, "contato": "", "email": "", "endereco": ""}])
                 conn.update(worksheet="Config", data=df_conf)
-                st.success("Configurações atualizadas!"); st.rerun()
+                st.success("Dados Atualizados!"); st.rerun()
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
