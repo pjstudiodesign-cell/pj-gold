@@ -23,7 +23,7 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão Cirúrgica
+# 2. Conexão
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados(aba):
@@ -33,7 +33,7 @@ def ler_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. PDF Profissional
+# 3. PDF
 def gerar_pdf(c, t, s, v, info):
     pdf = FPDF()
     pdf.add_page()
@@ -46,7 +46,7 @@ def gerar_pdf(c, t, s, v, info):
     pdf.multi_cell(0, 8, f"Serviço: {s}\nWhatsApp: {t}\nValor Total: R$ {v:,.2f}")
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
-# 4. Execução do Sistema
+# 4. App
 def main():
     aplicar_estilo()
     df_p = ler_dados("Página1")
@@ -68,9 +68,9 @@ def main():
         st.title("➕ Novo Orçamento")
         with st.form("f_job"):
             c1, c2 = st.columns(2)
-            n = c1.text_input("Cliente")
+            n = c1.text_input("Nome do Cliente")
             tel = c2.text_input("WhatsApp")
-            v = st.number_input("Valor", min_value=0.0)
+            v = st.number_input("Valor do Serviço", min_value=0.0)
             ser = st.text_area("Descrição do Serviço")
             obs = st.text_area("Observações")
             if st.form_submit_button("SALVAR E GERAR PDF"):
@@ -78,14 +78,14 @@ def main():
                     nova = pd.DataFrame([{"id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "obs": obs, "data": datetime.now().strftime('%d/%m/%Y')}])
                     df_up = pd.concat([df_p, nova], ignore_index=True)
                     conn.update(worksheet="Página1", data=df_up)
-                    st.success("✅ Orçamento salvo no sistema!")
-                    st.session_state['pdf_ok'] = {"n":n,"t":tel,"s":ser,"v":v}
-                except: st.error("Erro de conexão. Verifique se o Sheets está como 'Editor'.")
+                    st.success("✅ Salvo!")
+                    st.session_state['pdf'] = {"n":n,"t":tel,"s":ser,"v":v}
+                except: st.error("Erro: Altere o Sheets para 'Editor'.")
 
-        if 'pdf_ok' in st.session_state:
-            p = st.session_state['pdf_ok']
-            pdf_bytes = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
-            st.download_button("📩 BAIXAR PDF PARA O CLIENTE", pdf_bytes, f"Orcamento_{p['n']}.pdf")
+        if 'pdf' in st.session_state:
+            p = st.session_state['pdf']
+            arq = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
+            st.download_button("📩 BAIXAR PDF", arq, f"Orc_{p['n']}.pdf")
 
     elif menu == "Gestão de Projetos":
         st.title("📋 Gestão de Projetos")
@@ -97,15 +97,15 @@ def main():
         with st.form("f_conf"):
             nome = st.text_input("Nome do Studio", info.get('nome_studio', ''))
             slogan = st.text_input("Slogan", info.get('slogan', ''))
-            zap = st.text_input("WhatsApp", info.get('contato', ''))
+            zap = st.text_input("WhatsApp de Contato", info.get('contato', ''))
             mail = st.text_input("E-mail", info.get('email', ''))
-            end = st.text_area("Endereço", info.get('endereco', ''))
+            end = st.text_area("Endereço Completo", info.get('endereco', ''))
             if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
                 try:
-                    df_new = pd.DataFrame([{"nome_studio":nome, "slogan":slogan, "contato":zap, "email":mail, "endereco":end}])
-                    conn.update(worksheet="Config", data=df_new)
-                    st.success("Dados atualizados com sucesso!"); st.rerun()
-                except: st.error("Erro ao atualizar configurações.")
+                    df_nc = pd.DataFrame([{"nome_studio":nome, "slogan":slogan, "contato":zap, "email":mail, "endereco":end}])
+                    conn.update(worksheet="Config", data=df_nc)
+                    st.success("Atualizado!"); st.rerun()
+                except: st.error("Erro ao salvar.")
 
 if __name__ == "__main__":
     main()
