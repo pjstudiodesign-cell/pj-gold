@@ -4,22 +4,15 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 
-# 1. Configuração da Página e Estilo PJ Gold (MANTIDO E REFORÇADO)
+# 1. Configuração da Página
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
-def aplicar_estilo_premium():
+# 2. Estilo Visual Premium (PJ Gold)
+def aplicar_estilo():
     st.markdown("""
         <style>
         .stApp { background-color: #0d0d0d; }
-        .gold-header {
-            background: linear-gradient(90deg, #D4AF37 0%, #B8860B 100%);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 25px;
-            border: 1px solid #FFD700;
-        }
-        h1, h2, h3 { color: #D4AF37 !important; font-family: 'Playfair Display', serif; }
+        h1, h2, h3 { color: #D4AF37 !important; }
         [data-testid="stSidebarNav"] span { color: #ffffff !important; font-weight: bold !important; }
         .st-emotion-cache-p5msec, .st-emotion-cache-1h9usn2, p { color: #ffffff !important; }
         label { color: #D4AF37 !important; font-weight: bold !important; }
@@ -33,37 +26,41 @@ def aplicar_estilo_premium():
             height: 3em !important;
             text-transform: uppercase;
         }
+        .stDownloadButton>button p { color: #000000 !important; font-weight: 900 !important; }
         section[data-testid="stSidebar"] { background-color: #111111; border-right: 2px solid #D4AF37; }
         .stMetric { background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        [data-testid="stMetricLabel"] { color: #ffffff !important; font-size: 1.2em !important; }
         [data-testid="stMetricValue"] { color: #D4AF37 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão Cirúrgica com a Planilha (Link exato do usuário)
+# 3. Conexão Blindada com Google Sheets
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PduECxYhVlp8QC5lTu2nasRQbBPGtDI8vEhs1qL6IgE"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def buscar_dados():
     try:
-        # worksheet="Projetos" deve estar exatamente como na planilha
         return conn.read(spreadsheet=URL_PLANILHA, worksheet="Projetos")
     except:
-        return pd.DataFrame(columns=["cliente", "servico", "valor", "status", "data_inicio", "telefone", "status_entrada", "status_final", "status_integral", "prazo_salvo", "pagamento_salvo", "revisao_salva", "obs_salva"])
+        return pd.DataFrame(columns=["cliente", "servico", "valor", "status", "data_inicio", "telefone", "valor_entrada", "status_entrada", "valor_final", "status_final", "status_integral", "prazo_salvo", "pagamento_salvo", "revisao_salva", "obs_salva"])
 
-# 3. Geração de PDF (Sem alterações de funcionalidade)
+# 4. Geração de PDF (Original)
 def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
     try:
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_fill_color(20, 20, 20)
-        pdf.rect(0, 0, 210, 65, 'F')
+        pdf.set_fill_color(20, 20, 20); pdf.rect(0, 0, 210, 65, 'F')
         pdf.set_y(12); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(212, 175, 55)
-        pdf.cell(0, 12, "PJ Gold Studio", ln=True, align='C')
+        pdf.cell(0, 12, "PJ Gold", ln=True, align='C')
+        pdf.set_font("Arial", 'I', 10); pdf.set_text_color(255, 255, 255)
+        pdf.cell(0, 6, "Studio Criativo", ln=True, align='C')
         pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
         pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
         pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
         pdf.ln(10); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
         pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
+        if obs:
+            pdf.ln(2); pdf.set_font("Arial", 'B', 11); pdf.cell(10, 7, "Obs: "); pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
         pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. CONDICOES", ln=True)
         pdf.set_font("Arial", '', 11); pdf.cell(0, 8, f"- Prazo: {prazo} | Revisões: {rev}", ln=True)
         pdf.cell(0, 8, f"- Forma de Pagamento: {pgto}", ln=True)
@@ -72,30 +69,33 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
-# 4. Interface e Navegação (Restaurando o Visual de Topo)
+# 5. Interface Principal
 def main():
-    aplicar_estilo_premium()
-    
-    # Barra Lateral
-    st.sidebar.markdown("<h2 style='text-align: center;'>⚜️ PJ Gold</h2>", unsafe_allow_html=True)
+    aplicar_estilo()
+    st.sidebar.title("⚜️ PJ Gold")
     menu = ["Painel", "Novo Job", "Gestão de Projetos"]
     escolha = st.sidebar.radio("Navegar:", menu)
-
     df = buscar_dados()
 
     if escolha == "Painel":
-        st.markdown('<div class="gold-header"><h1 style="color: black !important; margin:0;">⚜️ PAINEL PJ GOLD</h1></div>', unsafe_allow_html=True)
+        st.title("⚜️ Painel PJ Gold")
         total_rec = 0.0; total_pend = 0.0
-        if not df.empty and 'status_integral' in df.columns:
-            df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
-            total_rec = df[df['status_integral'] == 'Recebido']['valor'].sum()
-            total_pend = df['valor'].sum() - total_rec
+        if not df.empty:
+            for _, r in df.iterrows():
+                v_total = pd.to_numeric(r['valor'], errors='coerce') or 0
+                if r['status_integral'] == 'Recebido': total_rec += v_total
+                else:
+                    v_ent = pd.to_numeric(r['valor_entrada'], errors='coerce') or 0
+                    v_fin = pd.to_numeric(r['valor_final'], errors='coerce') or 0
+                    total_rec += (v_ent if r['status_entrada'] == 'Recebido' else 0)
+                    total_rec += (v_fin if r['status_final'] == 'Recebido' else 0)
+            total_pend = (pd.to_numeric(df['valor'], errors='coerce').sum() or 0) - total_rec
         col1, col2 = st.columns(2)
         with col1: st.metric("Total em Caixa", f"R$ {total_rec:,.2f}")
         with col2: st.metric("A Receber", f"R$ {total_pend:,.2f}")
 
     elif escolha == "Novo Job":
-        st.markdown('<div class="gold-header"><h1 style="color: black !important; margin:0;">⚜️ NOVO ORÇAMENTO</h1></div>', unsafe_allow_html=True)
+        st.title("⚜️ Novo Orçamento")
         with st.form("orc_form"):
             c1, c2 = st.columns(2); n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor Total", min_value=0.0, step=0.01)
@@ -105,22 +105,35 @@ def main():
             pag = c5.text_input("Pagamento", "50% entrada / 50% entrega")
             if st.form_submit_button("SALVAR NA NUVEM"):
                 if n and ser:
-                    novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel,"status_entrada":"Pendente","status_final":"Pendente","status_integral":"Pendente","prazo_salvo":prz,"pagamento_salvo":pag,"revisao_salva":rev,"obs_salva":obs_in}])
+                    novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel,"valor_entrada":v/2,"status_entrada":"Pendente","valor_final":v/2,"status_final":"Pendente","status_integral":"Pendente","prazo_salvo":prz,"pagamento_salvo":pag,"revisao_salva":rev,"obs_salva":obs_in}])
                     updated_df = pd.concat([df, novo], ignore_index=True)
                     conn.update(spreadsheet=URL_PLANILHA, data=updated_df)
                     st.success("Salvo com sucesso!"); st.rerun()
 
     elif escolha == "Gestão de Projetos":
-        st.markdown('<div class="gold-header"><h1 style="color: black !important; margin:0;">⚜️ GESTÃO DE PROJETOS</h1></div>', unsafe_allow_html=True)
-        if df.empty: st.info("Sem projetos salvos na nuvem.")
+        st.title("⚜️ Gestão e Financeiro")
+        if df.empty: st.info("Sem projetos.")
         else:
             for i, r in df.iterrows():
-                with st.expander(f"📌 {r['cliente']} | {r['status']}"):
+                with st.expander(f"📌 {r['cliente']} | R$ {float(r['valor']):.2f}"):
                     st.write(f"**Serviço:** {r['servico']}")
-                    if st.button("Gerar PDF", key=f"btn_{i}"):
-                        pdf_data = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
-                        if pdf_data:
-                            st.download_button("Baixar Orc", pdf_data, f"Orc_{r['cliente']}.pdf", key=f"dl_{i}")
+                    col1, col2, col3 = st.columns(3)
+                    s_int = col1.selectbox("Integral", ["Pendente", "Recebido"], index=0 if r['status_integral'] == "Pendente" else 1, key=f"i{i}")
+                    s_ent = col2.selectbox("Entrada", ["Pendente", "Recebido"], index=0 if r['status_entrada'] == "Pendente" else 1, key=f"e{i}")
+                    s_fin = col3.selectbox("Final", ["Pendente", "Recebido"], index=0 if r['status_final'] == "Pendente" else 1, key=f"f{i}")
+                    
+                    c_at, c_orc, c_del = st.columns(3)
+                    if c_at.button("Atualizar", key=f"at{i}"):
+                        df.at[i, 'status_integral'] = s_int; df.at[i, 'status_entrada'] = s_ent; df.at[i, 'status_final'] = s_fin
+                        conn.update(spreadsheet=URL_PLANILHA, data=df)
+                        st.rerun()
+                    if c_orc.button("PDF", key=f"pdf{i}"):
+                        pdf = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
+                        st.download_button("Baixar", pdf, f"Orc_{r['cliente']}.pdf", key=f"dl{i}")
+                    if c_del.button("Excluir", key=f"del{i}"):
+                        df = df.drop(i)
+                        conn.update(spreadsheet=URL_PLANILHA, data=df)
+                        st.rerun()
 
 if __name__ == "__main__":
     main()
