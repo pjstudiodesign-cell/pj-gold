@@ -20,10 +20,6 @@ def aplicar_estilo():
         .stTextInput>div>div>input, .stTextArea>div>div>textarea {
             background-color: #1a1a1a !important; color: #FFD700 !important; border: 1px solid #333 !important;
         }
-        /* Estilo dos Cards do Painel */
-        .metric-card {
-            background-color: #111; border: 1px solid #333; padding: 20px; border-radius: 10px;
-        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -37,7 +33,7 @@ def ler_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. PDF
+# 3. PDF Profissional
 def gerar_pdf(c, t, s, v, info):
     pdf = FPDF()
     pdf.add_page()
@@ -50,7 +46,7 @@ def gerar_pdf(c, t, s, v, info):
     pdf.multi_cell(0, 8, f"Serviço: {s}\nWhatsApp: {t}\nValor Total: R$ {v:,.2f}")
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
-# 4. App
+# 4. App Principal
 def main():
     aplicar_estilo()
     df_p = ler_dados("Página1")
@@ -63,18 +59,13 @@ def main():
 
     if menu == "Painel":
         st.title(f"📊 Painel {info.get('nome_studio')}")
-        # Recuperação dos Indicadores Financeiros
         if not df_p.empty:
             df_p['valor'] = pd.to_numeric(df_p['valor'], errors='coerce').fillna(0)
             col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Total em Caixa", f"R$ {df_p['valor'].sum():,.2f}")
-            with col2:
-                st.metric("A Receber", "R$ 0.00") # Campo mantido conforme imagem original
+            col1.metric("Total em Caixa", f"R$ {df_p['valor'].sum():,.2f}")
+            col2.metric("A Receber", "R$ 0.00")
             st.write("---")
             st.dataframe(df_p, use_container_width=True)
-        else:
-            st.info("Aguardando lançamentos para calcular o caixa.")
 
     elif menu == "Novo Job":
         st.title("➕ Novo Orçamento")
@@ -90,14 +81,14 @@ def main():
                     nova = pd.DataFrame([{"id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "obs": obs, "data": datetime.now().strftime('%d/%m/%Y')}])
                     df_up = pd.concat([df_p, nova], ignore_index=True)
                     conn.update(worksheet="Página1", data=df_up)
-                    st.success("✅ Salvo!")
-                    st.session_state['pdf'] = {"n":n,"t":tel,"s":ser,"v":v}
-                except: st.error("Erro de Permissão: Altere o Sheets para 'Editor'.")
+                    st.success("✅ Orçamento salvo!")
+                    st.session_state['pdf_pronto'] = {"n":n,"t":tel,"s":ser,"v":v}
+                except: st.error("Erro de Permissão: Altere o Google Sheets para 'Editor'.")
 
-        if 'pdf' in st.session_state:
-            p = st.session_state['pdf']
-            arq = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
-            st.download_button("📩 BAIXAR PDF", arq, f"Orc_{p['n']}.pdf")
+        if 'pdf_pronto' in st.session_state:
+            p = st.session_state['pdf_pronto']
+            bytes_pdf = gerar_pdf(p['n'], p['t'], p['s'], p['v'], info)
+            st.download_button("📩 BAIXAR PDF DO CLIENTE", bytes_pdf, f"Orc_{p['n']}.pdf")
 
     elif menu == "Gestão de Projetos":
         st.title("📋 Gestão de Projetos")
@@ -116,7 +107,7 @@ def main():
                 try:
                     df_nc = pd.DataFrame([{"nome_studio":nome, "slogan":slogan, "contato":zap, "email":mail, "endereco":end}])
                     conn.update(worksheet="Config", data=df_nc)
-                    st.success("Atualizado!"); st.rerun()
+                    st.success("✅ Configurações atualizadas!"); st.rerun()
                 except: st.error("Erro ao salvar.")
 
 if __name__ == "__main__":
