@@ -4,15 +4,22 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 
-# 1. Configuração da Página
+# 1. Configuração da Página e Estilo PJ Gold (MANTIDO E REFORÇADO)
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
-# 2. Estilo Visual Premium (PJ Gold) - MANTIDO INTEGRALMENTE
-def aplicar_estilo():
+def aplicar_estilo_premium():
     st.markdown("""
         <style>
         .stApp { background-color: #0d0d0d; }
-        h1, h2, h3 { color: #D4AF37 !important; }
+        .gold-header {
+            background: linear-gradient(90deg, #D4AF37 0%, #B8860B 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 25px;
+            border: 1px solid #FFD700;
+        }
+        h1, h2, h3 { color: #D4AF37 !important; font-family: 'Playfair Display', serif; }
         [data-testid="stSidebarNav"] span { color: #ffffff !important; font-weight: bold !important; }
         .st-emotion-cache-p5msec, .st-emotion-cache-1h9usn2, p { color: #ffffff !important; }
         label { color: #D4AF37 !important; font-weight: bold !important; }
@@ -26,26 +33,24 @@ def aplicar_estilo():
             height: 3em !important;
             text-transform: uppercase;
         }
-        .stDownloadButton>button p { color: #000000 !important; font-weight: 900 !important; }
         section[data-testid="stSidebar"] { background-color: #111111; border-right: 2px solid #D4AF37; }
         .stMetric { background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; }
-        [data-testid="stMetricLabel"] { color: #ffffff !important; font-size: 1.2em !important; }
         [data-testid="stMetricValue"] { color: #D4AF37 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-# 3. Conexão Blindada - LINK ATUALIZADO
+# 2. Conexão Cirúrgica com a Planilha (Link exato do usuário)
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PduECxYhVlp8QC5lTu2nasRQbBPGtDI8vEhs1qL6IgE"
-
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def buscar_dados():
     try:
+        # worksheet="Projetos" deve estar exatamente como na planilha
         return conn.read(spreadsheet=URL_PLANILHA, worksheet="Projetos")
     except:
         return pd.DataFrame(columns=["cliente", "servico", "valor", "status", "data_inicio", "telefone", "status_entrada", "status_final", "status_integral", "prazo_salvo", "pagamento_salvo", "revisao_salva", "obs_salva"])
 
-# 4. Geração de PDF (MANTIDO INTEGRALMENTE)
+# 3. Geração de PDF (Sem alterações de funcionalidade)
 def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
     try:
         pdf = FPDF()
@@ -53,9 +58,7 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
         pdf.set_fill_color(20, 20, 20)
         pdf.rect(0, 0, 210, 65, 'F')
         pdf.set_y(12); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(212, 175, 55)
-        pdf.cell(0, 12, "PJ Gold", ln=True, align='C')
-        pdf.set_font("Arial", 'I', 10); pdf.set_text_color(255, 255, 255)
-        pdf.cell(0, 6, "Elite Service", ln=True, align='C')
+        pdf.cell(0, 12, "PJ Gold Studio", ln=True, align='C')
         pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
         pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
         pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
@@ -69,17 +72,19 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
-# 5. Interface Principal
+# 4. Interface e Navegação (Restaurando o Visual de Topo)
 def main():
-    aplicar_estilo()
-    st.sidebar.title("⚜️ PJ Gold Studio")
+    aplicar_estilo_premium()
+    
+    # Barra Lateral
+    st.sidebar.markdown("<h2 style='text-align: center;'>⚜️ PJ Gold</h2>", unsafe_allow_html=True)
     menu = ["Painel", "Novo Job", "Gestão de Projetos"]
     escolha = st.sidebar.radio("Navegar:", menu)
 
     df = buscar_dados()
 
     if escolha == "Painel":
-        st.title("⚜️ Painel PJ Gold")
+        st.markdown('<div class="gold-header"><h1 style="color: black !important; margin:0;">⚜️ PAINEL PJ GOLD</h1></div>', unsafe_allow_html=True)
         total_rec = 0.0; total_pend = 0.0
         if not df.empty and 'status_integral' in df.columns:
             df['valor'] = pd.to_numeric(df['valor'], errors='coerce').fillna(0)
@@ -90,7 +95,7 @@ def main():
         with col2: st.metric("A Receber", f"R$ {total_pend:,.2f}")
 
     elif escolha == "Novo Job":
-        st.title("⚜️ Novo Orçamento")
+        st.markdown('<div class="gold-header"><h1 style="color: black !important; margin:0;">⚜️ NOVO ORÇAMENTO</h1></div>', unsafe_allow_html=True)
         with st.form("orc_form"):
             c1, c2 = st.columns(2); n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor Total", min_value=0.0, step=0.01)
@@ -106,16 +111,16 @@ def main():
                     st.success("Salvo com sucesso!"); st.rerun()
 
     elif escolha == "Gestão de Projetos":
-        st.title("⚜️ Gestão e Financeiro")
+        st.markdown('<div class="gold-header"><h1 style="color: black !important; margin:0;">⚜️ GESTÃO DE PROJETOS</h1></div>', unsafe_allow_html=True)
         if df.empty: st.info("Sem projetos salvos na nuvem.")
         else:
             for i, r in df.iterrows():
-                with st.expander(f"📌 {r['cliente']}"):
+                with st.expander(f"📌 {r['cliente']} | {r['status']}"):
                     st.write(f"**Serviço:** {r['servico']}")
-                    if st.button("Gerar Orçamento PDF", key=f"pdf_btn_{i}"):
+                    if st.button("Gerar PDF", key=f"btn_{i}"):
                         pdf_data = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
                         if pdf_data:
-                            st.download_button("Clique para Baixar", pdf_data, f"Orc_{r['cliente']}.pdf", key=f"dl_{i}")
+                            st.download_button("Baixar Orc", pdf_data, f"Orc_{r['cliente']}.pdf", key=f"dl_{i}")
 
 if __name__ == "__main__":
     main()
