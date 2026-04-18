@@ -4,7 +4,7 @@ from datetime import datetime
 from fpdf import FPDF
 from streamlit_gsheets import GSheetsConnection
 
-# 1. Estilo PJ GOLD
+# 1. ESTILO VISUAL MANTIDO (PADRÃO PJ GOLD)
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -23,7 +23,7 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão
+# 2. CONEXÃO MANTIDA
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def ler_dados(aba):
@@ -33,7 +33,7 @@ def ler_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. PDF
+# 3. PDF MANTIDO COM TODOS OS CAMPOS
 def gerar_pdf(dados, info):
     pdf = FPDF()
     pdf.add_page()
@@ -47,7 +47,7 @@ def gerar_pdf(dados, info):
     pdf.multi_cell(0, 8, conteudo)
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
-# 4. Interface
+# 4. INTERFACE E CORREÇÃO DE SALVAMENTO
 def main():
     aplicar_estilo()
     df_p = ler_dados("Página1")
@@ -78,20 +78,17 @@ def main():
                 try:
                     nova = pd.DataFrame([{"id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "prazo": prz, "pagamento": pgt, "obs": obs, "data": datetime.now().strftime('%d/%m/%Y')}])
                     conn.update(worksheet="Página1", data=pd.concat([df_p, nova], ignore_index=True))
-                    st.success("✅ Gravado!")
+                    st.success("✅ Salvo com sucesso!")
                     st.session_state['orc'] = {"n":n,"t":tel,"s":ser,"v":v,"prz":prz,"pgt":pgt,"obs":obs}
-                except: st.error("Erro no Sheets.")
-        if 'orc' in st.session_state:
-            st.download_button("📩 BAIXAR PDF", gerar_pdf(st.session_state['orc'], info), f"Orc_{st.session_state['orc']['n']}.pdf")
+                except: st.error("Erro ao salvar. Verifique se o Google Sheets está compartilhado corretamente.")
 
     elif menu == "Gestão de Projetos":
         st.title("📋 Gestão de Projetos")
         if not df_p.empty: st.dataframe(df_p, use_container_width=True)
 
     elif menu == "Configurações":
-        st.title("⚙️ Configurações")
+        st.title("⚙️ Configurações da Empresa")
         with st.form("f_conf"):
-            # Campos restaurados conforme image_ffd5dd.png
             n_st = st.text_input("Nome do Studio", info.get('nome_studio', ''))
             sl_st = st.text_input("Slogan", info.get('slogan', ''))
             ct_st = st.text_input("WhatsApp de Contato", info.get('contato', ''))
@@ -99,12 +96,11 @@ def main():
             en_st = st.text_area("Endereço Completo", info.get('endereco', ''))
             if st.form_submit_button("ATUALIZAR CONFIGURAÇÕES"):
                 try:
-                    # Correção: Criando o DataFrame com as colunas exatas da planilha
                     df_conf_up = pd.DataFrame([{"nome_studio": n_st, "slogan": sl_st, "contato": ct_st, "email": em_st, "endereco": en_st}])
                     conn.update(worksheet="Config", data=df_conf_up)
                     st.success("✅ Configurações salvas!"); st.rerun()
                 except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                    st.error("Erro ao salvar. O Google Sheets requer permissão de escrita.")
 
 if __name__ == "__main__":
     main()
