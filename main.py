@@ -44,16 +44,22 @@ def buscar_dados():
     except:
         return pd.DataFrame(columns=["cliente", "servico", "valor", "status", "data_inicio", "telefone", "valor_entrada", "status_entrada", "valor_final", "status_final", "status_integral", "prazo_salvo", "pagamento_salvo", "revisao_salva", "obs_salva"])
 
-# 4. Geração de PDF (Original)
-def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
+def buscar_config():
+    try:
+        return conn.read(spreadsheet=URL_PLANILHA, worksheet="Config_Empresa")
+    except:
+        return pd.DataFrame([{"nome": "PJ Gold", "slogam": "Studio Criativo", "contato": "", "endereco": ""}])
+
+# 4. Geração de PDF
+def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, config):
     try:
         pdf = FPDF()
         pdf.add_page()
         pdf.set_fill_color(20, 20, 20); pdf.rect(0, 0, 210, 65, 'F')
         pdf.set_y(12); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(212, 175, 55)
-        pdf.cell(0, 12, "PJ Gold", ln=True, align='C')
+        pdf.cell(0, 12, config['nome'].iloc[0], ln=True, align='C')
         pdf.set_font("Arial", 'I', 10); pdf.set_text_color(255, 255, 255)
-        pdf.cell(0, 6, "Studio Criativo", ln=True, align='C')
+        pdf.cell(0, 6, config['slogam'].iloc[0], ln=True, align='C')
         pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
         pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
         pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
@@ -73,9 +79,11 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
 def main():
     aplicar_estilo()
     st.sidebar.title("⚜️ PJ Gold")
-    menu = ["Painel", "Novo Job", "Gestão de Projetos"]
+    menu = ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"]
     escolha = st.sidebar.radio("Navegar:", menu)
+    
     df = buscar_dados()
+    df_config = buscar_config()
 
     if escolha == "Painel":
         st.title("⚜️ Painel PJ Gold")
@@ -121,19 +129,31 @@ def main():
                     s_int = col1.selectbox("Integral", ["Pendente", "Recebido"], index=0 if r['status_integral'] == "Pendente" else 1, key=f"i{i}")
                     s_ent = col2.selectbox("Entrada", ["Pendente", "Recebido"], index=0 if r['status_entrada'] == "Pendente" else 1, key=f"e{i}")
                     s_fin = col3.selectbox("Final", ["Pendente", "Recebido"], index=0 if r['status_final'] == "Pendente" else 1, key=f"f{i}")
-                    
                     c_at, c_orc, c_del = st.columns(3)
                     if c_at.button("Atualizar", key=f"at{i}"):
                         df.at[i, 'status_integral'] = s_int; df.at[i, 'status_entrada'] = s_ent; df.at[i, 'status_final'] = s_fin
                         conn.update(spreadsheet=URL_PLANILHA, data=df)
-                        st.rerun()
+                        st.success("Atualizado!"); st.rerun()
                     if c_orc.button("PDF", key=f"pdf{i}"):
-                        pdf = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
+                        pdf = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'], df_config)
                         st.download_button("Baixar", pdf, f"Orc_{r['cliente']}.pdf", key=f"dl{i}")
                     if c_del.button("Excluir", key=f"del{i}"):
                         df = df.drop(i)
                         conn.update(spreadsheet=URL_PLANILHA, data=df)
                         st.rerun()
+
+    elif escolha == "Configurações":
+        st.title("⚜️ Configurações da Empresa")
+        with st.form("config_form"):
+            nome_emp = st.text_input("Nome da Empresa", df_config['nome'].iloc[0])
+            slogam_emp = st.text_input("Slogam", df_config['slogam'].iloc[0])
+            contato_emp = st.text_input("Contato", df_config['contato'].iloc[0])
+            end_emp = st.text_area("Endereço Completo", df_config['endereco'].iloc[0])
+            if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
+                nova_config = pd.DataFrame([{"nome": nome_emp, "slogam": slogam_emp, "contato": contato_emp, "endereco": end_emp}])
+                conn.update(spreadsheet=URL_PLANILHA, data=nova_config, worksheet="Config_Empresa")
+                st.success("Configurações salvas na nuvem!")
+                st.rerun()
 
 if __name__ == "__main__":
     main()
