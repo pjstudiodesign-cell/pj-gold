@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 
-# 1. Identidade Visual Premium PJ Gold (Restauração Completa)
+# 1. Identidade Visual Premium PJ Gold
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -25,7 +25,7 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão Cirúrgica com Planilha
+# 2. Conexão
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PduECxYhVlp8QC5lTu2nasRQbBPGtDI8vEhs1qL6IgE"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -35,21 +35,23 @@ def buscar_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. Gerador de PDF Profissional
+# 3. Gerador de PDF (Com todos os campos exigidos)
 def gerar_pdf(cliente, servico, valor, pgto, prazo, rev, obs, config):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_fill_color(20, 20, 20); pdf.rect(0, 0, 210, 60, 'F')
-    pdf.set_y(15); pdf.set_font("Arial", 'B', 22); pdf.set_text_color(212, 175, 55)
-    nome_marca = config['nome'].iloc[0] if not config.empty else "PJ Gold"
-    pdf.cell(0, 10, nome_marca, ln=True, align='C')
-    pdf.set_y(70); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"CLIENTE: {str(cliente).upper()}", ln=True)
-    pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"Serviço: {servico}\nObservações: {obs}")
-    pdf.ln(5); pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "CONDIÇÕES COMERCIAIS", ln=True)
-    pdf.set_font("Arial", '', 11); pdf.cell(0, 7, f"Prazo: {prazo} | Revisões: {rev} | Pagamento: {pgto}", ln=True)
-    pdf.set_y(-40); pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, f"TOTAL: R$ {valor:,.2f}", ln=True, align='R')
-    return pdf.output(dest='S').encode('latin-1', 'ignore')
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_fill_color(20, 20, 20); pdf.rect(0, 0, 210, 60, 'F')
+        pdf.set_y(15); pdf.set_font("Arial", 'B', 22); pdf.set_text_color(212, 175, 55)
+        n_marca = config['nome'].iloc[0] if not config.empty else "PJ Gold"
+        pdf.cell(0, 10, n_marca, ln=True, align='C')
+        pdf.set_y(70); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 10, f"CLIENTE: {str(cliente).upper()}", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"Serviço: {servico}\nObs: {obs}")
+        pdf.ln(5); pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "CONDIÇÕES", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.cell(0, 7, f"Prazo: {prazo} | Revisões: {rev} | Pagamento: {pgto}", ln=True)
+        pdf.set_y(-40); pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, f"TOTAL: R$ {valor:,.2f}", ln=True, align='R')
+        return pdf.output(dest='S').encode('latin-1', 'ignore')
+    except: return None
 
 # 4. Interface Principal
 def main():
@@ -76,7 +78,7 @@ def main():
 
     elif escolha == "Novo Job":
         st.title("⚜️ Novo Orçamento")
-        with st.form("orc_form"):
+        with st.form("orc_form", clear_on_submit=False):
             col1, col2 = st.columns(2)
             nome_c = col1.text_input("Cliente")
             zap_c = col2.text_input("WhatsApp")
@@ -91,12 +93,12 @@ def main():
             if st.form_submit_button("SALVAR NA NUVEM"):
                 if nome_c and servico_desc:
                     try:
-                        novo_d = pd.DataFrame([{"cliente": nome_c, "servicos": servico_desc, "Valor": v_total, "status": "Pendente", "data_inicio": datetime.now().strftime("%d/%m/%Y"), "telefone": zap_c}])
+                        novo_d = pd.DataFrame([{"cliente": nome_c, "servicos": servico_desc, "Valor": v_total, "status": "Pendente", "data_inicio": datetime.now().strftime("%d/%m/%Y"), "telefone": zap_c, "prazo_salvo": prazo_c, "rev_salvo": rev_c, "pgto_salvo": pgto_c, "obs_salvo": obs_texto}])
                         res = pd.concat([df_projs, novo_d], ignore_index=True)
                         conn.update(spreadsheet=URL_PLANILHA, data=res, worksheet="Projetos")
-                        st.success("Salvo com sucesso!"); st.rerun()
+                        st.success("✅ Salvo!"); st.rerun()
                     except:
-                        st.error("Erro ao gravar. Verifique se o Secrets está configurado.")
+                        st.error("Erro ao gravar. Verifique o Secrets.")
 
     elif escolha == "Gestão de Projetos":
         st.title("⚜️ Gestão e Financeiro")
@@ -105,16 +107,16 @@ def main():
             for i, r in df_projs.iterrows():
                 with st.expander(f"📌 {r.get('cliente')} | R$ {float(r.get('Valor',0)):.2f}"):
                     st.write(f"**Serviço:** {r.get('servicos')}")
-                    st.write(f"**Telefone:** {r.get('telefone')}")
                     c_st, c_pdf = st.columns(2)
                     n_status = c_st.selectbox("Status", ["Pendente", "Recebido"], index=0 if r.get('status') == "Pendente" else 1, key=f"st{i}")
-                    if c_st.button("Atualizar Status", key=f"up{i}"):
+                    if c_st.button("Atualizar", key=f"up{i}"):
                         df_projs.at[i, 'status'] = n_status
                         conn.update(spreadsheet=URL_PLANILHA, data=df_projs, worksheet="Projetos")
-                        st.success("Atualizado!"); st.rerun()
+                        st.success("OK!"); st.rerun()
                     
-                    pdf_data = gerar_pdf(r['cliente'], r.get('servicos'), r.get('Valor'), "Combinado", "Combinado", "Padrão", "", df_cfg)
-                    c_pdf.download_button("Baixar PDF", pdf_data, f"Orcamento_{r['cliente']}.pdf", key=f"dl{i}")
+                    pdf_data = gerar_pdf(r['cliente'], r.get('servicos'), r.get('Valor'), r.get('pgto_salvo','Combinado'), r.get('prazo_salvo','Combinado'), r.get('rev_salvo','Padrão'), r.get('obs_salvo',''), df_cfg)
+                    if pdf_data:
+                        c_pdf.download_button("Baixar PDF", pdf_data, f"Orc_{r['cliente']}.pdf", key=f"dl{i}")
 
     elif escolha == "Configurações":
         st.title("⚜️ Configurações da Empresa")
@@ -123,14 +125,12 @@ def main():
             s_v = df_cfg['slogam'].iloc[0] if not df_cfg.empty else ""
             c_v = df_cfg['contato'].iloc[0] if not df_cfg.empty else ""
             e_v = df_cfg['endereco'].iloc[0] if not df_cfg.empty else ""
-            n_marca = st.text_input("Nome da Marca", n_v)
-            s_marca = st.text_input("Slogan", s_v)
-            c_marca = st.text_input("Contato", c_v)
-            e_marca = st.text_area("Endereço", e_v)
-            if st.form_submit_button("Salvar Configurações"):
+            n_marca = st.text_input("Marca", n_v); s_marca = st.text_input("Slogan", s_v)
+            c_marca = st.text_input("Zap", c_v); e_marca = st.text_area("Endereço", e_v)
+            if st.form_submit_button("Salvar"):
                 n_cfg = pd.DataFrame([{"nome": n_marca, "slogam": s_marca, "contato": c_marca, "endereco": e_marca}])
                 conn.update(spreadsheet=URL_PLANILHA, data=n_cfg, worksheet="Config_Empresa")
-                st.success("Configuração salva!"); st.rerun()
+                st.success("Salvo!"); st.rerun()
 
 if __name__ == "__main__":
     main()
