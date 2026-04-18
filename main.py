@@ -1,10 +1,10 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
-from streamlit_gsheets import GSheetsConnection
 
-# 1. Estilo PJ Gold
+# 1. Configuração e Estilo PJ Gold (Rigorosamente igual às imagens)
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -12,11 +12,22 @@ def aplicar_estilo():
         <style>
         .stApp { background-color: #0d0d0d; }
         h1, h2, h3 { color: #D4AF37 !important; }
+        [data-testid="stSidebarNav"] span { color: #ffffff !important; font-weight: bold !important; }
+        .st-emotion-cache-p5msec, .st-emotion-cache-1h9usn2, p { color: #ffffff !important; }
         label { color: #D4AF37 !important; font-weight: bold !important; }
-        .stButton>button {
+        .stButton>button, .stDownloadButton>button {
             background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%) !important;
-            color: #000000 !important; font-weight: 900 !important; width: 100% !important;
+            color: #000000 !important;
+            font-weight: 900 !important;
+            border-radius: 8px !important;
+            width: 100% !important;
+            border: none !important;
+            height: 3em !important;
+            text-transform: uppercase;
         }
+        section[data-testid="stSidebar"] { background-color: #111111; border-right: 2px solid #D4AF37; }
+        .stMetric { background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        [data-testid="stMetricValue"] { color: #D4AF37 !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -31,16 +42,30 @@ def buscar_dados(aba):
         return pd.DataFrame()
 
 # 3. PDF
-def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, f"ORÇAMENTO: {cliente}", ln=True, align='C')
-    pdf.set_font("Arial", '', 12)
-    pdf.multi_cell(0, 10, f"Serviço: {servico}\nValor: R$ {valor:.2f}\nPrazo: {prazo}\nPagamento: {pgto}")
-    return pdf.output(dest='S').encode('latin-1', 'ignore')
+def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, config):
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_fill_color(20, 20, 20); pdf.rect(0, 0, 210, 65, 'F')
+        pdf.set_y(12); pdf.set_font("Arial", 'B', 20); pdf.set_text_color(212, 175, 55)
+        n_emp = config['nome'].iloc[0] if not config.empty else "PJ Gold"
+        pdf.cell(0, 12, n_emp, ln=True, align='C')
+        pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
+        pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
+        pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
+        pdf.ln(10); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
+        if obs:
+            pdf.ln(2); pdf.set_font("Arial", 'B', 11); pdf.cell(10, 7, "Obs: "); pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
+        pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. CONDICOES", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.cell(0, 8, f"- Prazo: {prazo} | Revisões: {rev}", ln=True)
+        pdf.cell(0, 8, f"- Forma de Pagamento: {pgto}", ln=True)
+        pdf.set_y(-40); pdf.set_font("Arial", 'B', 18)
+        pdf.cell(0, 15, f"INVESTIMENTO TOTAL: R$ {valor:,.2f}", ln=True, align='R')
+        return pdf.output(dest='S').encode('latin-1', 'ignore')
+    except: return None
 
-# 4. Interface
+# 4. Interface Principal
 def main():
     aplicar_estilo()
     st.sidebar.title("⚜️ PJ Gold")
@@ -51,35 +76,50 @@ def main():
     df_config = buscar_dados("Config_Empresa")
 
     if escolha == "Painel":
-        st.title("⚜️ Painel")
+        st.title("⚜️ Painel PJ Gold")
+        total_rec = 0.0; total_pend = 0.0
         if not df_projetos.empty:
-            v_total = pd.to_numeric(df_projetos['valor'], errors='coerce').sum()
-            st.metric("Total de Projetos", f"R$ {v_total:,.2f}")
+            for _, r in df_projetos.iterrows():
+                v_total = pd.to_numeric(r.get('valor', 0), errors='coerce') or 0.0
+                if r.get('status_integral') == 'Recebido': total_rec += v_total
+                else:
+                    v_ent = pd.to_numeric(r.get('valor_entrada', 0), errors='coerce') or 0.0
+                    v_fin = pd.to_numeric(r.get('valor_final', 0), errors='coerce') or 0.0
+                    if r.get('status_entrada') == 'Recebido': total_rec += v_ent
+                    else: total_pend += v_ent
+                    if r.get('status_final') == 'Recebido': total_rec += v_fin
+                    else: total_pend += v_fin
+        c1, c2 = st.columns(2)
+        c1.metric("Total em Caixa", f"R$ {total_rec:,.2f}")
+        c2.metric("A Receber", f"R$ {total_pend:,.2f}")
 
     elif escolha == "Novo Job":
-        st.title("⚜️ Novo Job")
+        st.title("⚜️ Novo Orçamento")
         with st.form("orc_form"):
-            n = st.text_input("Cliente"); tel = st.text_input("WhatsApp")
-            v = st.number_input("Valor", min_value=0.0)
-            ser = st.text_area("Serviço")
-            if st.form_submit_button("SALVAR"):
+            c1, c2 = st.columns(2); n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
+            v = st.number_input("Valor Total", min_value=0.0, step=0.01)
+            ser = st.text_area("Serviço"); obs_in = st.text_input("Observações")
+            c3, c4, c5 = st.columns(3); prz = c3.text_input("Prazo", "10 dias úteis")
+            rev = c4.selectbox("Revisões", ["Padrão", "1", "2", "3", "Ilimitadas"])
+            pag = c5.text_input("Pagamento", "50% entrada / 50% entrega")
+            if st.form_submit_button("SALVAR NA NUVEM"):
                 if n and ser:
-                    novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel}])
+                    novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel,"valor_entrada":v/2,"status_entrada":"Pendente","valor_final":v/2,"status_final":"Pendente","status_integral":"Pendente","prazo_salvo":prz,"pagamento_salvo":pag,"revisao_salva":rev,"obs_salva":obs_in}])
                     try:
-                        # Tenta salvar - se o Secrets não estiver lá, ele dará o erro
-                        df_atualizado = pd.concat([df_projetos, novo], ignore_index=True)
-                        conn.update(spreadsheet=URL_PLANILHA, data=df_atualizado, worksheet="Projetos")
-                        st.success("Salvo com sucesso!")
-                    except:
-                        st.error("ERRO DE PERMISSÃO: A planilha precisa da chave JSON no arquivo secrets.toml.")
+                        updated_df = pd.concat([df_projetos, novo], ignore_index=True)
+                        conn.update(spreadsheet=URL_PLANILHA, data=updated_df, worksheet="Projetos")
+                        st.success("Salvo com sucesso!"); st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar: {e}")
 
     elif escolha == "Gestão de Projetos":
-        st.title("⚜️ Gestão")
-        st.write(df_projetos)
-
-    elif escolha == "Configurações":
-        st.title("⚜️ Configurações")
-        st.write("Configurações da Empresa")
-
-if __name__ == "__main__":
-    main()
+        st.title("⚜️ Gestão e Financeiro")
+        if df_projetos.empty: st.info("Sem projetos.")
+        else:
+            for i, r in df_projetos.iterrows():
+                if str(r.get('cliente')).lower() in ['teste', 'modelo']: continue
+                with st.expander(f"📌 {r['cliente']} | R$ {float(r.get('valor',0)):.2f}"):
+                    st.write(f"**Serviço:** {r.get('servico', '---')}")
+                    c1, c2, c3 = st.columns(3)
+                    s_int = c1.selectbox("Integral", ["Pendente", "Recebido"], index=0 if r.get('status_integral') == "Pendente" else 1, key=f"i{i}")
+                    s_ent = c2.selectbox("Entrada", ["Pendente", "Recebido"], index=0 if r.get('status_entrada') == "Pendente" else 1, key
