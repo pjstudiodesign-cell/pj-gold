@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 
-# 1. Configuração da Página e Estilo Premium (Mantido Original)
+# 1. Configuração e Estilo PJ Gold
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -31,7 +31,7 @@ def aplicar_estilo():
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão com a Planilha (ttl=0 para dados em tempo real)
+# 2. Conexão
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PduECxYhVlp8QC5lTu2nasRQbBPGtDI8vEhs1qL6IgE"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -42,7 +42,7 @@ def buscar_dados(aba):
     except:
         return pd.DataFrame()
 
-# 3. Gerador de PDF Original
+# 3. PDF
 def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, config):
     try:
         pdf = FPDF()
@@ -66,7 +66,7 @@ def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs, config):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
-# 4. Interface Principal
+# 4. Interface
 def main():
     aplicar_estilo()
     st.sidebar.title("⚜️ PJ Gold")
@@ -104,21 +104,18 @@ def main():
                 if n and ser:
                     novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel,"valor_entrada":v/2,"status_entrada":"Pendente","valor_final":v/2,"status_final":"Pendente","status_integral":"Pendente","prazo_salvo":prz,"pagamento_salvo":pag,"revisao_salva":rev,"obs_salva":obs_in}])
                     try:
-                        # Corrigindo a gravação sem quebrar o DataFrame
                         updated_df = pd.concat([df_projetos, novo], ignore_index=True)
                         conn.update(spreadsheet=URL_PLANILHA, data=updated_df, worksheet="Projetos")
                         st.success("Salvo!"); st.rerun()
-                    except Exception as e:
-                        st.error("Erro ao salvar. Verifique se as abas da planilha estão corretas.")
+                    except:
+                        st.error("Erro ao salvar na planilha.")
 
     elif escolha == "Gestão de Projetos":
         st.title("⚜️ Gestão e Financeiro")
         if df_projetos.empty: st.info("Sem projetos.")
         else:
             for i, r in df_projetos.iterrows():
-                # Evita erro se a linha for o 'Modelo' que você criou
-                if str(r.get('cliente')).lower() == 'modelo' or pd.isna(r.get('cliente')): continue
-                
+                if str(r.get('cliente')).lower() in ['teste', 'modelo']: continue
                 with st.expander(f"📌 {r['cliente']} | R$ {float(r['valor']):.2f}"):
                     st.write(f"**Serviço:** {r.get('servico', '---')}")
                     c1, c2, c3 = st.columns(3)
@@ -126,14 +123,14 @@ def main():
                     s_ent = c2.selectbox("Entrada", ["Pendente", "Recebido"], index=0 if r.get('status_entrada') == "Pendente" else 1, key=f"e{i}")
                     s_fin = c3.selectbox("Final", ["Pendente", "Recebido"], index=0 if r.get('status_final') == "Pendente" else 1, key=f"f{i}")
                     
-                    btn_at, btn_pdf = st.columns(2)
-                    if btn_at.button("Atualizar Financeiro", key=f"at{i}"):
+                    b1, b2 = st.columns(2)
+                    if b1.button("Atualizar Financeiro", key=f"at{i}"):
                         df_projetos.at[i, 'status_integral'] = s_int
                         df_projetos.at[i, 'status_entrada'] = s_ent
                         df_projetos.at[i, 'status_final'] = s_fin
                         conn.update(spreadsheet=URL_PLANILHA, data=df_projetos, worksheet="Projetos")
                         st.success("Atualizado!"); st.rerun()
-                    if btn_pdf.button("Gerar PDF", key=f"pdf{i}"):
+                    if b2.button("Gerar PDF", key=f"pdf{i}"):
                         pdf = gerar_pdf_orcamento(r['cliente'], r.get('servico',''), r['valor'], r.get('pagamento_salvo',''), r.get('prazo_salvo',''), r.get('revisao_salva',''), r.get('obs_salva',''), df_config)
                         st.download_button("Baixar PDF", pdf, f"Orc_{r['cliente']}.pdf", key=f"dl{i}")
 
@@ -141,11 +138,17 @@ def main():
         st.title("⚜️ Configurações da Empresa")
         with st.form("cfg"):
             n_v = df_config['nome'].iloc[0] if not df_config.empty else "PJ Gold"
+            s_v = df_config['slogam'].iloc[0] if not df_config.empty else ""
+            c_v = df_config['contato'].iloc[0] if not df_config.empty else ""
+            e_v = df_config['endereco'].iloc[0] if not df_config.empty else ""
             nome_emp = st.text_input("Nome da Marca", n_v)
+            slogam_emp = st.text_input("Slogan", s_v)
+            contato_emp = st.text_input("Contato/Zap", c_v)
+            end_emp = st.text_area("Endereço", e_v)
             if st.form_submit_button("Salvar Configurações"):
-                nova_cfg = pd.DataFrame([{"nome": nome_emp, "slogam": "", "contato": "", "endereco": ""}])
+                nova_cfg = pd.DataFrame([{"nome": nome_emp, "slogam": slogam_emp, "contato": contato_emp, "endereco": end_emp}])
                 conn.update(spreadsheet=URL_PLANILHA, data=nova_cfg, worksheet="Config_Empresa")
-                st.success("Atualizado!"); st.rerun()
+                st.success("Configuração salva!"); st.rerun()
 
 if __name__ == "__main__":
     main()
