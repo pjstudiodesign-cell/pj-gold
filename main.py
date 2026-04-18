@@ -1,105 +1,204 @@
 import streamlit as st
+import sqlite3
 import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
-from streamlit_gsheets import GSheetsConnection
+import os
 
-# 1. Identidade PJ GOLD
+# 1. Configuração da Página
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
+# 2. Estilo Visual Premium (PJ Gold)
 def aplicar_estilo():
     st.markdown("""
         <style>
-        .stApp { background-color: #050505; }
-        [data-testid="stSidebar"] { background-color: #050505 !important; border-right: 1px solid #FFD700; }
-        h1, h2, h3, p, span, label { color: #FFD700 !important; }
+        .stApp { background-color: #0d0d0d; }
+        h1, h2, h3 { color: #D4AF37 !important; }
+        [data-testid="stSidebarNav"] span { color: #ffffff !important; font-weight: bold !important; }
+        .st-emotion-cache-p5msec, .st-emotion-cache-1h9usn2, p { color: #ffffff !important; }
+        label { color: #D4AF37 !important; font-weight: bold !important; }
         .stButton>button, .stDownloadButton>button {
-            background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%) !important;
-            color: #000 !important; font-weight: bold; border-radius: 8px;
+            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%) !important;
+            color: #000000 !important;
+            font-weight: 900 !important; /* Texto em preto bem destacado */
+            border-radius: 8px !important;
+            width: 100% !important;
+            border: none !important;
+            height: 3em !important;
+            text-transform: uppercase;
         }
-        .stTextInput>div>div>input, .stTextArea>div>div>textarea {
-            background-color: #1a1a1a !important; color: #FFD700 !important; border: 1px solid #333 !important;
-        }
+        .stDownloadButton>button p { color: #000000 !important; font-weight: 900 !important; }
+        section[data-testid="stSidebar"] { background-color: #111111; border-right: 2px solid #D4AF37; }
+        .stMetric { background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        [data-testid="stMetricLabel"] { color: #ffffff !important; font-size: 1.2em !important; }
+        [data-testid="stMetricValue"] { color: #D4AF37 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão Resiliente
-conn = st.connection("gsheets", type=GSheetsConnection)
+# BLINDAGEM DE DADOS: Definição do caminho persistente
+# Usando /tmp/ para garantir que o Streamlit Cloud não delete o banco durante a sessão
+DB_PATH = "/tmp/pjgold_data.db" if not os.path.exists('local_dev.txt') else 'pjgold_data.db'
 
-def ler_dados(aba):
+# 3. Busca de Dados
+def buscar_dados_empresa():
     try:
-        df = conn.read(worksheet=aba, ttl=0)
-        return df if df is not None else pd.DataFrame()
-    except:
-        return pd.DataFrame()
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT nome_studio, sub_titulo, contato, email, endereco FROM config WHERE id=1")
+        res = cursor.fetchone()
+        conn.close()
+        if res: return res
+    except: pass
+    return ("PJ Gold", "Studio Criativo", "", "", "")
 
-# 3. PDF com todos os campos (Prazo e Pagamento)
-def gerar_pdf(dados, info):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_fill_color(10, 10, 10); pdf.rect(0, 0, 210, 55, 'F')
-    pdf.set_y(15); pdf.set_font("Arial", 'B', 22); pdf.set_text_color(255, 215, 0)
-    pdf.cell(0, 10, str(info.get('nome_studio', 'PJ GOLD')).upper(), ln=True, align='C')
-    pdf.set_y(65); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, f"ORÇAMENTO: {dados['n'].upper()}", ln=True)
-    pdf.set_font("Arial", '', 11)
-    txt = (f"Serviço: {dados['s']}\nWhatsApp: {dados['t']}\nValor: R$ {dados['v']:,.2f}\n"
-           f"Prazo: {dados['prz']}\nPagamento: {dados['pgt']}\nObs: {dados['obs']}")
-    pdf.multi_cell(0, 8, txt)
-    return pdf.output(dest='S').encode('latin-1', 'ignore')
+# 4. Geração de PDF (Marca PJ Gold)
+def gerar_pdf_orcamento(cliente, servico, valor, pgto, prazo, rev, obs):
+    try:
+        info = buscar_dados_empresa()
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_fill_color(20, 20, 20)
+        pdf.rect(0, 0, 210, 65, 'F')
+        pdf.set_y(12)
+        pdf.set_font("Arial", 'B', 20)
+        pdf.set_text_color(212, 175, 55)
+        pdf.cell(0, 12, "PJ Gold", ln=True, align='C')
+        pdf.set_font("Arial", 'I', 10)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(0, 6, str(info[1]), ln=True, align='C')
+        pdf.set_font("Arial", '', 9)
+        pdf.set_text_color(200, 200, 200)
+        contato_info = f"WhatsApp: {info[2]} | Email: {info[3]}"
+        pdf.cell(0, 6, contato_info, ln=True, align='C')
+        if info[4]: pdf.multi_cell(0, 5, f"Endereço: {info[4]}", align='C')
+        pdf.set_y(75); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
+        pdf.cell(100, 10, f"CLIENTE: {str(cliente).upper()}", ln=0)
+        pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
+        pdf.ln(10); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}")
+        if obs:
+            pdf.ln(2); pdf.set_font("Arial", 'B', 11); pdf.cell(10, 7, "Obs: "); pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{obs}")
+        pdf.ln(5); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "2. CONDICOES", ln=True)
+        pdf.set_font("Arial", '', 11); pdf.cell(0, 8, f"- Prazo: {prazo} | Revisões: {rev}", ln=True)
+        pdf.cell(0, 8, f"- Forma de Pagamento: {pgto}", ln=True)
+        pdf.set_y(-40); pdf.set_font("Arial", 'B', 18)
+        pdf.cell(0, 15, f"INVESTIMENTO TOTAL: R$ {valor:,.2f}", ln=True, align='R')
+        return pdf.output(dest='S').encode('latin-1', 'ignore')
+    except: return None
 
-# 4. Execução Principal
+def gerar_pdf_recibo(cliente, servico, valor):
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_draw_color(212, 175, 55); pdf.rect(5, 5, 200, 120)
+        pdf.set_font("Arial", 'B', 18); pdf.set_y(15); pdf.cell(0, 15, "RECIBO DE PAGAMENTO", ln=True, align='C')
+        pdf.ln(10); pdf.set_font("Arial", '', 12)
+        texto = f"Recebemos de {str(cliente).upper()}, a importância de R$ {valor:,.2f} referente ao serviço de: {servico}."
+        pdf.multi_cell(0, 10, texto, align='L')
+        pdf.ln(10); pdf.cell(0, 10, f"Data: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='R')
+        pdf.ln(15); pdf.cell(0, 10, "__________________________________________________", ln=True, align='C')
+        pdf.set_font("Arial", 'B', 10); pdf.cell(0, 5, "PJ Gold", ln=True, align='C')
+        return pdf.output(dest='S').encode('latin-1', 'ignore')
+    except: return None
+
+# 5. Banco de Dados (Iniciação Blindada)
+def iniciar_db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("""CREATE TABLE IF NOT EXISTS projetos 
+        (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente TEXT, servico TEXT, valor REAL, status TEXT, 
+        data_inicio TEXT, telefone TEXT, valor_entrada REAL, status_entrada TEXT, valor_final REAL, 
+        status_final TEXT, status_integral TEXT, prazo_salvo TEXT, pagamento_salvo TEXT, 
+        revisao_salva TEXT, obs_salva TEXT)""")
+    cursor.execute("CREATE TABLE IF NOT EXISTS config (id INTEGER PRIMARY KEY, nome_studio TEXT, sub_titulo TEXT, contato TEXT, email TEXT, endereco TEXT)")
+    cursor.execute("SELECT COUNT(*) FROM config")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO config (id, nome_studio, sub_titulo, contato, email, endereco) VALUES (1, 'PJ Gold', 'Elite Service', '', '', '')")
+        conn.commit()
+    return conn
+
+# 6. Interface Principal
 def main():
     aplicar_estilo()
-    df_p = ler_dados("Página1")
-    df_c = ler_dados("Config")
+    conn = iniciar_db()
+    cursor = conn.cursor()
+    info_sidebar = buscar_dados_empresa()
     
-    info = df_c.iloc[0].to_dict() if not df_c.empty else {"nome_studio": "PJ GOLD"}
-    
-    st.sidebar.title(f"⚜️ {info.get('nome_studio')}")
-    menu = st.sidebar.radio("Navegar", ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"])
+    st.sidebar.title(f"⚜️ {info_sidebar[0]}")
+    menu = ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"]
+    escolha = st.sidebar.radio("Navegar:", menu)
 
-    if menu == "Painel":
-        st.title("📊 Painel Financeiro")
-        valor_caixa = pd.to_numeric(df_p['valor'], errors='coerce').sum() if not df_p.empty else 0.0
-        c1, c2 = st.columns(2)
-        c1.metric("Dinheiro em Caixa", f"R$ {valor_caixa:,.2f}")
-        c2.metric("Dinheiro a Receber", "R$ 0.00")
-        if not df_p.empty: st.dataframe(df_p, use_container_width=True)
+    if escolha == "Painel":
+        st.title(f"⚜️ Painel {info_sidebar[0]}")
+        df = pd.read_sql_query("SELECT * FROM projetos", conn)
+        total_rec = 0.0; total_pend = 0.0
+        if not df.empty:
+            for _, r in df.iterrows():
+                v_total = r['valor'] or 0
+                if r['status_integral'] == 'Recebido': total_rec += v_total
+                else:
+                    total_rec += (r['valor_entrada'] if r['status_entrada'] == 'Recebido' else 0)
+                    total_rec += (r['valor_final'] if r['status_final'] == 'Recebido' else 0)
+            total_pend = (df['valor'].sum() or 0) - total_rec
+        col1, col2 = st.columns(2)
+        with col1: st.metric("Total em Caixa", f"R$ {total_rec:,.2f}")
+        with col2: st.metric("A Receber", f"R$ {total_pend:,.2f}")
 
-    elif menu == "Novo Job":
-        st.title("➕ Novo Orçamento")
-        with st.form("f_job"):
-            c1, c2 = st.columns(2)
-            n, tel = c1.text_input("Nome do Cliente"), c2.text_input("WhatsApp")
-            v, prz = st.number_input("Valor", min_value=0.0), st.text_input("Prazo")
-            pgt = st.text_input("Forma de Pagamento")
-            ser, obs = st.text_area("Serviço"), st.text_area("Observações")
-            
-            if st.form_submit_button("GERAR PDF E TENTAR SALVAR"):
-                # Garante que o PDF seja gerado mesmo se o salvamento falhar
-                st.session_state['orc_data'] = {"n":n,"t":tel,"s":ser,"v":v,"prz":prz,"pgt":pgt,"obs":obs}
-                try:
-                    novo = pd.DataFrame([{"id": len(df_p)+1, "cliente": n, "telefone": tel, "servico": ser, "valor": v, "prazo": prz, "pagamento": pgt, "obs": obs, "data": datetime.now().strftime('%d/%m/%Y')}])
-                    df_up = pd.concat([df_p, novo], ignore_index=True)
-                    conn.update(worksheet="Página1", data=df_up)
-                    st.success("✅ Salvo no Google Sheets!")
-                except:
-                    st.warning("⚠️ Erro de permissão no Google Sheets. O PDF está disponível abaixo para você não perder o cliente!")
+    elif escolha == "Novo Job":
+        st.title("⚜️ Novo Orçamento")
+        with st.form("orc_form"):
+            c1, c2 = st.columns(2); n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
+            v = st.number_input("Valor Total", min_value=0.0, step=0.01)
+            ser = st.text_area("Serviço"); obs_in = st.text_input("Observações")
+            c3, c4, c5 = st.columns(3); prz = c3.text_input("Prazo", "10 dias úteis")
+            rev = c4.selectbox("Revisões", ["Padrão", "1", "2", "3", "Ilimitadas"])
+            pag = c5.text_input("Pagamento", "50% entrada / 50% entrega")
+            if st.form_submit_button("SALVAR"):
+                if n and ser:
+                    cursor.execute("""INSERT INTO projetos (cliente, servico, valor, status, data_inicio, telefone, 
+                        valor_entrada, status_entrada, valor_final, status_final, status_integral, 
+                        prazo_salvo, pagamento_salvo, revisao_salva, obs_salva) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (n, ser, v, "Em Produção", datetime.now().strftime("%d/%m/%Y"), tel, v/2, "Pendente", v/2, "Pendente", "Pendente", prz, pag, rev, obs_in))
+                    conn.commit(); st.success("Orçamento Salvo!")
+                else: st.error("Preencha os campos obrigatórios.")
 
-        if 'orc_data' in st.session_state:
-            arq = gerar_pdf(st.session_state['orc_data'], info)
-            st.download_button("📩 BAIXAR PDF DO CLIENTE", arq, f"Orc_{st.session_state['orc_data']['n']}.pdf")
+    elif escolha == "Gestão de Projetos":
+        st.title("⚜️ Gestão e Financeiro")
+        df = pd.read_sql_query("SELECT * FROM projetos ORDER BY id DESC", conn)
+        for _, r in df.iterrows():
+            with st.expander(f"📌 {r['cliente']} | R$ {r['valor']:.2f}"):
+                st.write(f"**Serviço:** {r['servico']}")
+                col1, col2, col3 = st.columns(3)
+                s_int = col1.selectbox("Integral", ["Pendente", "Recebido"], index=0 if r['status_integral'] == "Pendente" else 1, key=f"i{r['id']}")
+                s_ent = col2.selectbox("Entrada", ["Pendente", "Recebido"], index=0 if r['status_entrada'] == "Pendente" else 1, key=f"e{r['id']}")
+                s_fin = col3.selectbox("Final", ["Pendente", "Recebido"], index=0 if r['status_final'] == "Pendente" else 1, key=f"f{r['id']}")
+                
+                c_at, c_orc, c_rec, c_del = st.columns(4)
+                if c_at.button("Atualizar", key=f"s{r['id']}"):
+                    cursor.execute("UPDATE projetos SET status_entrada=?, status_final=?, status_integral=? WHERE id=?", (s_ent, s_fin, s_int, r['id'])); conn.commit(); st.rerun()
+                if c_orc.button("Orçamento", key=f"btn_orc{r['id']}"):
+                    pdf_o = gerar_pdf_orcamento(r['cliente'], r['servico'], r['valor'], r['pagamento_salvo'], r['prazo_salvo'], r['revisao_salva'], r['obs_salva'])
+                    if pdf_o: st.download_button("Baixar Orçamento", pdf_o, f"Orcamento_{r['cliente']}.pdf", key=f"dl_orc{r['id']}")
+                if c_rec.button("Recibo", key=f"btn_rec{r['id']}"):
+                    v_pago = r['valor'] if s_int == "Recebido" else (r['valor_entrada'] if s_ent == "Recebido" else 0)
+                    pdf_r = gerar_pdf_recibo(r['cliente'], r['servico'], v_pago)
+                    if pdf_r: st.download_button("Baixar Recibo", pdf_r, f"Recibo_{r['cliente']}.pdf", key=f"dl_rec{r['id']}")
+                if c_del.button("Excluir", key=f"del{r['id']}"):
+                    cursor.execute("DELETE FROM projetos WHERE id=?", (r['id'],)); conn.commit(); st.rerun()
 
-    elif menu == "Gestão de Projetos":
-        st.title("📋 Gestão de Projetos")
-        if not df_p.empty: st.dataframe(df_p, use_container_width=True)
-        else: st.info("Nenhum dado encontrado na planilha.")
-
-    elif menu == "Configurações":
-        st.title("⚙️ Configurações")
-        st.text_input("Nome do Studio", info.get('nome_studio', 'PJ GOLD'))
-        st.info("Nota: Para salvar alterações aqui e no banco de dados, é necessário configurar as credenciais JSON no Streamlit.")
+    elif escolha == "Configurações":
+        st.title("⚙️ Configurações da Empresa")
+        info_form = buscar_dados_empresa()
+        with st.form("form_config"):
+            nome_emp = st.text_input("Nome do Studio/Empresa", info_form[0])
+            slogan_emp = st.text_input("Slogan ou Subtítulo", info_form[1])
+            whats_emp = st.text_input("WhatsApp de Contato", info_form[2])
+            email_emp = st.text_input("E-mail", info_form[3])
+            end_emp = st.text_area("Endereço Completo", info_form[4])
+            if st.form_submit_button("SALVAR"):
+                cursor.execute("UPDATE config SET nome_studio=?, sub_titulo=?, contato=?, email=?, endereco=? WHERE id=1", (nome_emp, slogan_emp, whats_emp, email_emp, end_emp))
+                conn.commit(); st.success("Configurações Salvas!"); st.rerun()
+    conn.close()
 
 if __name__ == "__main__":
     main()
