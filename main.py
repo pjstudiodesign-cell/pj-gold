@@ -20,6 +20,10 @@ def aplicar_estilo():
         .stTextInput>div>div>input, .stTextArea>div>div>textarea {
             background-color: #1a1a1a !important; color: #FFD700 !important; border: 1px solid #333 !important;
         }
+        /* Estilo dos Cards do Painel */
+        .metric-card {
+            background-color: #111; border: 1px solid #333; padding: 20px; border-radius: 10px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -59,10 +63,18 @@ def main():
 
     if menu == "Painel":
         st.title(f"📊 Painel {info.get('nome_studio')}")
+        # Recuperação dos Indicadores Financeiros
         if not df_p.empty:
             df_p['valor'] = pd.to_numeric(df_p['valor'], errors='coerce').fillna(0)
-            st.metric("Total Projetado", f"R$ {df_p['valor'].sum():,.2f}")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total em Caixa", f"R$ {df_p['valor'].sum():,.2f}")
+            with col2:
+                st.metric("A Receber", "R$ 0.00") # Campo mantido conforme imagem original
+            st.write("---")
             st.dataframe(df_p, use_container_width=True)
+        else:
+            st.info("Aguardando lançamentos para calcular o caixa.")
 
     elif menu == "Novo Job":
         st.title("➕ Novo Orçamento")
@@ -80,7 +92,7 @@ def main():
                     conn.update(worksheet="Página1", data=df_up)
                     st.success("✅ Salvo!")
                     st.session_state['pdf'] = {"n":n,"t":tel,"s":ser,"v":v}
-                except: st.error("Erro: Altere o Sheets para 'Editor'.")
+                except: st.error("Erro de Permissão: Altere o Sheets para 'Editor'.")
 
         if 'pdf' in st.session_state:
             p = st.session_state['pdf']
