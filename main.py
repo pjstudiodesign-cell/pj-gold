@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 
-# 1. Configuração e Estilo PJ Gold (Rigorosamente mantido)
+# 1. Identidade Visual Premium (Intacta)
 st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
 
 def aplicar_estilo():
@@ -75,15 +75,13 @@ def main():
     df_projetos = buscar_dados("Projetos")
     df_config = buscar_dados("Config_Empresa")
 
-    # RESTAURADO: PAINEL COMPLETO
     if escolha == "Painel":
         st.title("⚜️ Painel PJ Gold")
         total_rec = 0.0; total_pend = 0.0
         if not df_projetos.empty:
             for _, r in df_projetos.iterrows():
                 v_total = pd.to_numeric(r.get('valor', 0), errors='coerce') or 0.0
-                if r.get('status_integral') == 'Recebido': 
-                    total_rec += v_total
+                if r.get('status_integral') == 'Recebido': total_rec += v_total
                 else:
                     v_ent = pd.to_numeric(r.get('valor_entrada', 0), errors='coerce') or 0.0
                     v_fin = pd.to_numeric(r.get('valor_final', 0), errors='coerce') or 0.0
@@ -91,29 +89,32 @@ def main():
                     else: total_pend += v_ent
                     if r.get('status_final') == 'Recebido': total_rec += v_fin
                     else: total_pend += v_fin
-        
         c1, c2 = st.columns(2)
         c1.metric("Total em Caixa", f"R$ {total_rec:,.2f}")
         c2.metric("A Receber", f"R$ {total_pend:,.2f}")
 
     elif escolha == "Novo Job":
         st.title("⚜️ Novo Orçamento")
-        with st.form("orc_form", clear_on_submit=True):
+        # Removido clear_on_submit para evitar que zere ao dar Enter no meio do preenchimento
+        with st.form("orc_form"):
             c1, c2 = st.columns(2); n = c1.text_input("Cliente"); tel = c2.text_input("WhatsApp")
             v = st.number_input("Valor Total", min_value=0.0, step=0.01)
             ser = st.text_area("Serviço"); obs_in = st.text_input("Observações")
             c3, c4, c5 = st.columns(3); prz = c3.text_input("Prazo", "10 dias úteis")
             rev = c4.selectbox("Revisões", ["Padrão", "1", "2", "3", "Ilimitadas"])
             pag = c5.text_input("Pagamento", "50% entrada / 50% entrega")
-            if st.form_submit_button("SALVAR NA NUVEM"):
+            
+            submit = st.form_submit_button("SALVAR NA NUVEM")
+            if submit:
                 if n and ser:
                     novo = pd.DataFrame([{"cliente":n,"servico":ser,"valor":v,"status":"Em Produção","data_inicio":datetime.now().strftime("%d/%m/%Y"),"telefone":tel,"valor_entrada":v/2,"status_entrada":"Pendente","valor_final":v/2,"status_final":"Pendente","status_integral":"Pendente","prazo_salvo":prz,"pagamento_salvo":pag,"revisao_salva":rev,"obs_salva":obs_in}])
                     try:
                         updated_df = pd.concat([df_projetos, novo], ignore_index=True)
                         conn.update(spreadsheet=URL_PLANILHA, data=updated_df, worksheet="Projetos")
-                        st.success("✅ Salvo!"); st.rerun()
+                        st.success("✅ Orçamento Salvo!")
+                        st.rerun()
                     except:
-                        st.error("Erro: Verifique as credenciais da planilha em Secrets.")
+                        st.error("Erro ao gravar. Verifique se o Secrets está configurado.")
 
     elif escolha == "Gestão de Projetos":
         st.title("⚜️ Gestão e Financeiro")
@@ -127,19 +128,16 @@ def main():
                     s_int = c1.selectbox("Integral", ["Pendente", "Recebido"], index=0 if r.get('status_integral') == "Pendente" else 1, key=f"i{i}")
                     s_ent = c2.selectbox("Entrada", ["Pendente", "Recebido"], index=0 if r.get('status_entrada') == "Pendente" else 1, key=f"e{i}")
                     s_fin = c3.selectbox("Final", ["Pendente", "Recebido"], index=0 if r.get('status_final') == "Pendente" else 1, key=f"f{i}")
-                    
-                    b1, b2 = st.columns(2)
-                    if b1.button("Atualizar Financeiro", key=f"at{i}"):
+                    if st.button("Atualizar Financeiro", key=f"at{i}"):
                         df_projetos.at[i, 'status_integral'] = s_int
                         df_projetos.at[i, 'status_entrada'] = s_ent
                         df_projetos.at[i, 'status_final'] = s_fin
                         conn.update(spreadsheet=URL_PLANILHA, data=df_projetos, worksheet="Projetos")
                         st.success("Atualizado!"); st.rerun()
-                    if b2.button("Gerar PDF", key=f"pdf{i}"):
+                    if st.button("Gerar PDF", key=f"pdf{i}"):
                         pdf = gerar_pdf_orcamento(r['cliente'], r.get('servico',''), r['valor'], r.get('pagamento_salvo',''), r.get('prazo_salvo',''), r.get('revisao_salva',''), r.get('obs_salva',''), df_config)
                         st.download_button("Baixar PDF", pdf, f"Orc_{r['cliente']}.pdf", key=f"dl{i}")
 
-    # RESTAURADO: CONFIGURAÇÕES COMPLETAS
     elif escolha == "Configurações":
         st.title("⚜️ Configurações da Empresa")
         with st.form("cfg"):
@@ -147,14 +145,12 @@ def main():
             s_v = df_config['slogam'].iloc[0] if not df_config.empty else ""
             c_v = df_config['contato'].iloc[0] if not df_config.empty else ""
             e_v = df_config['endereco'].iloc[0] if not df_config.empty else ""
-            nome_emp = st.text_input("Nome da Marca", n_v)
-            slogam_emp = st.text_input("Slogan", s_v)
-            contato_emp = st.text_input("Contato/Zap", c_v)
-            end_emp = st.text_area("Endereço", e_v)
+            nome_emp = st.text_input("Nome", n_v); slogan = st.text_input("Slogan", s_v)
+            contato = st.text_input("Contato", c_v); endereco = st.text_area("Endereço", e_v)
             if st.form_submit_button("Salvar Configurações"):
-                nova_cfg = pd.DataFrame([{"nome": nome_emp, "slogam": slogam_emp, "contato": contato_emp, "endereco": end_emp}])
+                nova_cfg = pd.DataFrame([{"nome": nome_emp, "slogam": slogan, "contato": contato, "endereco": endereco}])
                 conn.update(spreadsheet=URL_PLANILHA, data=nova_cfg, worksheet="Config_Empresa")
-                st.success("Configuração salva!"); st.rerun()
+                st.success("Salvo!"); st.rerun()
 
 if __name__ == "__main__":
     main()
