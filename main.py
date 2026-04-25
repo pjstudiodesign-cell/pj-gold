@@ -15,7 +15,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- CSS PRETO E OURO (IDENTIDADE INVICTA - BLINDAGEM TOTAL) ---
+# --- CSS PRETO E OURO (IDENTIDADE INVICTA - NÃO TOCAR) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -74,19 +74,18 @@ elif menu == "NOVO ORÇAMENTO":
         
         if st.form_submit_button("SALVAR ORÇAMENTO"):
             if c_nome and p_nome:
-                # Blindagem Inteligente: Só envia o que o banco aceitar
-                dados = {"cliente": c_nome, "nome_projeto": p_nome, "valor_total": p_valor, "status_integral": "Pendente"}
-                opcionais = {"cpf_cnpj": c_doc, "whatsapp_cliente": c_zap, "email_cliente": c_mail, "endereco": c_end, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig}
-                
+                # Blindagem: Tenta salvar tudo, se falhar salva o básico para não perder o serviço
                 try:
-                    # Tenta salvar tudo primeiro
-                    dados.update(opcionais)
-                    supabase.table("projetos").insert(dados).execute()
+                    dados_full = {
+                        "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
+                        "email_cliente": c_mail, "endereco": c_end, "nome_projeto": p_nome,
+                        "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig
+                    }
+                    supabase.table("projetos").insert(dados_full).execute()
                     st.success("✅ Orçamento salvo com sucesso!")
                 except Exception:
-                    # Se falhar colunas novas, salva apenas o essencial para não travar
                     supabase.table("projetos").insert({"cliente": c_nome, "nome_projeto": p_nome, "valor_total": p_valor}).execute()
-                    st.warning("⚠️ Salvo apenas dados básicos. Algumas colunas (como CPF/Endereço) ainda precisam ser criadas no Supabase.")
+                    st.warning("⚠️ Dados básicos salvos. Colunas extras precisam ser criadas no Supabase.")
             else:
                 st.warning("Preencha Nome do Cliente e do Projeto.")
 
@@ -114,12 +113,12 @@ elif menu == "CONFIGURAÇOES":
         
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
             try:
-                # Tenta salvar todos os campos de configuração
+                # Tenta atualizar todos os campos aprovados
                 supabase.table("configuracoes").update({
                     "nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
                 }).eq("id", 1).execute()
                 st.success("✅ Configurações salvas!")
             except Exception:
-                # Backup de salvamento para evitar erro vermelho
+                # Salva o que o banco permite para não dar erro vermelho
                 supabase.table("configuracoes").update({"nome_empresa": n_emp, "whatsapp": w_emp, "email": e_emp}).eq("id", 1).execute()
-                st.warning("⚠️ Dados básicos salvos. As colunas de CPF e Endereço ainda não existem no seu banco de dados.")
+                st.warning("⚠️ Salvo apenas dados básicos (Nome/Zap/Email).")
