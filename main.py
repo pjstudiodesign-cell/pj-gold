@@ -1,136 +1,209 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
+import io
+import os
+from st_supabase_connection import SupabaseConnection
 
-# 1. Identidade Visual Premium PJ Gold
-st.set_page_config(page_title="PJ Gold System", page_icon="⚜️", layout="wide")
+# ==========================================
+# CONFIGURAÇÃO VISUAL PJ GOLD (PRESERVADA)
+# ==========================================
+st.set_page_config(page_title="PJ Gold - Gestão de Elite", page_icon="⚜️", layout="wide")
 
-def aplicar_estilo():
+def aplicar_estilo_pj_gold():
     st.markdown("""
         <style>
         .stApp { background-color: #0d0d0d; }
-        h1, h2, h3 { color: #D4AF37 !important; }
-        [data-testid="stSidebarNav"] span { color: #ffffff !important; font-weight: bold !important; }
-        label { color: #D4AF37 !important; font-weight: bold !important; }
+        h1, h2, h3, label, p { color: #D4AF37 !important; }
         .stButton>button {
-            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%) !important;
-            color: #000000 !important; font-weight: 900 !important; width: 100% !important;
-            border-radius: 8px !important; border: none !important; text-transform: uppercase;
+            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+            color: #000 !important;
+            font-weight: bold;
+            border-radius: 8px;
+            width: 100%;
+            border: none;
         }
+        .stMetric { background-color: #1a1a1a; padding: 15px; border-radius: 10px; border: 1px solid #D4AF37; }
         section[data-testid="stSidebar"] { background-color: #111111; border-right: 2px solid #D4AF37; }
-        .stMetric { background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; }
-        [data-testid="stMetricValue"] { color: #D4AF37 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1PduECxYhVlp8QC5lTu2nasRQbBPGtDI8vEhs1qL6IgE"
-conn = st.connection("gsheets", type=GSheetsConnection)
+# ==========================================
+# CONEXÃO SUPABASE (MOTOR DE ELITE)
+# ==========================================
+# O Streamlit gerencia a conexão automaticamente via Secrets ou Variáveis de Ambiente
+conn = st.connection("supabase", type=SupabaseConnection)
 
-def buscar_dados(aba):
+def buscar_config():
+    """Busca dados do studio. Se não existir, retorna padrão."""
     try:
-        return conn.read(spreadsheet=URL_PLANILHA, worksheet=aba, ttl=0).dropna(how='all')
+        response = conn.table("config").select("*").eq("id", 1).execute()
+        if len(response.data) > 0:
+            return response.data[0]
+        else:
+            # Dados padrão caso o banco esteja vazio
+            return {
+                "nome_studio": "PJ STUDIO DESIGN",
+                "sub_titulo": "Solucoes Inteligentes em Design e Software",
+                "contato": "24981196037",
+                "email": "pjstudiodesign@gmail.com",
+                "endereco": "Rua Guilherme Marcondes, 505 - Barra Mansa - RJ"
+            }
     except:
-        return pd.DataFrame()
+        return {
+            "nome_studio": "PJ STUDIO DESIGN",
+            "sub_titulo": "Erro de Conexão",
+            "contato": "", "email": "", "endereco": ""
+        }
 
-# 3. Gerador de PDF (Com todos os campos exigidos)
-def gerar_pdf(cliente, servico, valor, pgto, prazo, rev, obs, config):
-    try:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_fill_color(20, 20, 20); pdf.rect(0, 0, 210, 60, 'F')
-        pdf.set_y(15); pdf.set_font("Arial", 'B', 22); pdf.set_text_color(212, 175, 55)
-        n_marca = config['nome'].iloc[0] if not config.empty else "PJ Gold"
-        pdf.cell(0, 10, n_marca, ln=True, align='C')
-        pdf.set_y(70); pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, f"CLIENTE: {str(cliente).upper()}", ln=True)
-        pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"Serviço: {servico}\nObs: {obs}")
-        pdf.ln(5); pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "CONDIÇÕES", ln=True)
-        pdf.set_font("Arial", '', 11); pdf.cell(0, 7, f"Prazo: {prazo} | Revisões: {rev} | Pagamento: {pgto}", ln=True)
-        pdf.set_y(-40); pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, f"TOTAL: R$ {valor:,.2f}", ln=True, align='R')
-        return pdf.output(dest='S').encode('latin-1', 'ignore')
-    except: return None
+# ==========================================
+# FUNÇÃO DE PDF (PRESERVADA)
+# ==========================================
+def gerar_pdf_orcamento(cliente, servico, valor, validade, pagamento, prazo, revisoes, obs, info_studio):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_fill_color(20, 20, 20)
+    pdf.rect(0, 0, 210, 55, 'F')
+    pdf.set_font("Arial", 'B', 24)
+    pdf.set_text_color(212, 175, 55)
+    pdf.cell(0, 15, info_studio['nome_studio'], ln=True, align='C')
+    pdf.set_font("Arial", 'I', 10)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 5, info_studio['sub_titulo'], ln=True, align='C')
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, f"WhatsApp: {info_studio['contato']} | Email: {info_studio['email']}", ln=True, align='C')
+    pdf.cell(0, 5, f"Endereco: {info_studio['endereco']}", ln=True, align='C')
+    pdf.ln(20)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(100, 10, f"CLIENTE: {cliente.upper()}", ln=0)
+    pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=1, align='R')
+    pdf.ln(10); pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "1. DESCRICAO DO SERVICO", ln=True)
+    pdf.set_font("Arial", '', 11); pdf.multi_cell(0, 7, f"{servico}\n\nExigencias: {obs}")
+    pdf.ln(5); pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "2. TERMOS E ENTREGA", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(0, 8, f"- Prazo: {prazo} | Revisoes: {revisoes}", ln=True)
+    pdf.cell(0, 8, f"- Pagamento: {pagamento} | Validade: {validade} dias", ln=True)
+    pdf.set_y(-40); pdf.set_font("Arial", 'B', 18)
+    pdf.cell(0, 15, f"INVESTIMENTO TOTAL: R$ {valor:,.2f}", ln=True, align='R')
+    return pdf.output(dest='S').encode('latin-1')
 
-# 4. Interface Principal
+# ==========================================
+# INTERFACE PRINCIPAL
+# ==========================================
 def main():
-    aplicar_estilo()
-    st.sidebar.title("⚜️ PJ Gold")
-    menu = ["Painel", "Novo Job", "Gestão de Projetos", "Configurações"]
-    escolha = st.sidebar.radio("Navegar:", menu)
-    
-    df_projs = buscar_dados("Projetos")
-    df_cfg = buscar_dados("Config_Empresa")
+    aplicar_estilo_pj_gold()
+    config_data = buscar_config()
+
+    st.sidebar.title("⚜️ MENU REAL")
+    menu = ["Painel", "Novo Job / Orçamento", "Gestão de Projetos", "Backup de Segurança", "Configurações"]
+    escolha = st.sidebar.radio("Ir para:", menu)
 
     if escolha == "Painel":
-        st.title("⚜️ Painel PJ Gold")
-        total_caixa = 0.0; total_pend = 0.0
-        if not df_projs.empty:
-            for _, r in df_projs.iterrows():
-                v = pd.to_numeric(r.get('Valor', 0), errors='coerce') or 0.0
-                if str(r.get('status')).strip() == 'Recebido': total_caixa += v
-                else: total_pend += v
+        st.title(f"⚜️ {config_data['nome_studio']} | Painel")
+        # Busca projetos do Supabase
+        res = conn.table("projetos").select("valor, financeiro").execute()
+        df = pd.DataFrame(res.data)
+        
+        recebido = df[df['financeiro'] == 'Recebido']['valor'].sum() if not df.empty else 0
+        a_receber = df[df['financeiro'] == 'Pendente']['valor'].sum() if not df.empty else 0
+        
         c1, c2 = st.columns(2)
-        c1.metric("Total em Caixa", f"R$ {total_caixa:,.2f}")
-        c2.metric("A Receber", f"R$ {total_pend:,.2f}")
-        st.dataframe(df_projs, use_container_width=True)
+        with c1:
+            st.metric("Dinheiro no Bolso", f"R$ {recebido:,.2f}")
+        with c2:
+            st.metric("Contas a Receber", f"R$ {a_receber:,.2f}")
 
-    elif escolha == "Novo Job":
+    elif escolha == "Novo Job / Orçamento":
         st.title("⚜️ Novo Orçamento")
-        with st.form("orc_form", clear_on_submit=False):
-            col1, col2 = st.columns(2)
-            nome_c = col1.text_input("Cliente")
-            zap_c = col2.text_input("WhatsApp")
-            v_total = st.number_input("Valor Total", min_value=0.0, step=0.01)
-            servico_desc = st.text_area("Serviço")
-            obs_texto = st.text_area("Observações")
-            c3, c4, c5 = st.columns(3)
-            prazo_c = c3.text_input("Prazo", "10 dias úteis")
-            rev_c = c4.text_input("Revisões", "2")
-            pgto_c = c5.text_input("Pagamento", "50% entrada / 50% entrega")
+        with st.form("orc"):
+            n = st.text_input("Cliente")
+            tel = st.text_input("WhatsApp")
+            val = st.number_input("Valor R$", min_value=0.0)
+            prz = st.text_input("Prazo (ex: 5 dias úteis)")
+            ser = st.text_area("Descrição do Serviço")
+            obs = st.text_area("Exigências / Observações")
+            pg = st.text_input("Forma de Pagamento")
+            rev = st.selectbox("Revisões", ["1 Revisão", "2 Revisões", "Ilimitadas"])
             
-            if st.form_submit_button("SALVAR NA NUVEM"):
-                if nome_c and servico_desc:
-                    try:
-                        novo_d = pd.DataFrame([{"cliente": nome_c, "servicos": servico_desc, "Valor": v_total, "status": "Pendente", "data_inicio": datetime.now().strftime("%d/%m/%Y"), "telefone": zap_c, "prazo_salvo": prazo_c, "rev_salvo": rev_c, "pgto_salvo": pgto_c, "obs_salvo": obs_texto}])
-                        res = pd.concat([df_projs, novo_d], ignore_index=True)
-                        conn.update(spreadsheet=URL_PLANILHA, data=res, worksheet="Projetos")
-                        st.success("✅ Salvo!"); st.rerun()
-                    except:
-                        st.error("Erro ao gravar. Verifique o Secrets.")
+            if st.form_submit_button("GERAR E SALVAR"):
+                # Salvar no Supabase
+                dados_job = {
+                    "cliente": n,
+                    "servico": ser,
+                    "valor": val,
+                    "status": "Em Produção",
+                    "data_inicio": datetime.now().strftime("%d/%m/%Y"),
+                    "mes_ano": datetime.now().strftime("%m/%Y"),
+                    "telefone": tel,
+                    "financeiro": "Pendente",
+                    "prazo": prz,
+                    "revisoes": rev,
+                    "exigencias": obs
+                }
+                conn.table("projetos").insert([dados_job]).execute()
+                
+                # Gerar PDF
+                pdf = gerar_pdf_orcamento(n, ser, val, 15, pg, prz, rev, obs, config_data)
+                st.success("Projeto registrado na nuvem com sucesso!")
+                st.download_button("📥 BAIXAR PDF", pdf, f"Orcamento_{n}.pdf")
 
     elif escolha == "Gestão de Projetos":
-        st.title("⚜️ Gestão e Financeiro")
-        if df_projs.empty: st.info("Sem dados.")
-        else:
-            for i, r in df_projs.iterrows():
-                with st.expander(f"📌 {r.get('cliente')} | R$ {float(r.get('Valor',0)):.2f}"):
-                    st.write(f"**Serviço:** {r.get('servicos')}")
-                    c_st, c_pdf = st.columns(2)
-                    n_status = c_st.selectbox("Status", ["Pendente", "Recebido"], index=0 if r.get('status') == "Pendente" else 1, key=f"st{i}")
-                    if c_st.button("Atualizar", key=f"up{i}"):
-                        df_projs.at[i, 'status'] = n_status
-                        conn.update(spreadsheet=URL_PLANILHA, data=df_projs, worksheet="Projetos")
-                        st.success("OK!"); st.rerun()
+        st.title("⚜️ Gestão de Jobs")
+        res = conn.table("projetos").select("*").order("id", desc=True).execute()
+        df = pd.DataFrame(res.data)
+        
+        if not df.empty:
+            for i, row in df.iterrows():
+                with st.expander(f"CLIENTE: {row['cliente']} | {row['status']}"):
+                    c1, c2, c3 = st.columns(3)
+                    ns = c1.selectbox("Status", ["Em Produção", "Finalizado"], index=0 if row['status'] == "Em Produção" else 1, key=f"s_{row['id']}")
+                    nf = c2.selectbox("Financeiro", ["Pendente", "Recebido"], index=0 if row['financeiro'] == "Pendente" else 1, key=f"f_{row['id']}")
                     
-                    pdf_data = gerar_pdf(r['cliente'], r.get('servicos'), r.get('Valor'), r.get('pgto_salvo','Combinado'), r.get('prazo_salvo','Combinado'), r.get('rev_salvo','Padrão'), r.get('obs_salvo',''), df_cfg)
-                    if pdf_data:
-                        c_pdf.download_button("Baixar PDF", pdf_data, f"Orc_{r['cliente']}.pdf", key=f"dl{i}")
+                    if c3.button("Atualizar", key=f"b_{row['id']}"):
+                        conn.table("projetos").update({"status": ns, "financeiro": nf}).eq("id", row['id']).execute()
+                        st.rerun()
+        else:
+            st.info("Nenhum projeto encontrado.")
+
+    elif escolha == "Backup de Segurança":
+        st.title("📦 Backup e Proteção de Dados")
+        res = conn.table("projetos").select("*").execute()
+        df = pd.DataFrame(res.data)
+        
+        if not df.empty:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Projetos_Nuvem')
+            st.download_button(label="📥 GERAR BACKUP (EXCEL)", data=output.getvalue(), file_name=f"Backup_PJ_GOLD_Nuvem_{datetime.now().strftime('%d_%m_%Y')}.xlsx")
+        else:
+            st.info("Sem dados para exportar.")
 
     elif escolha == "Configurações":
-        st.title("⚜️ Configurações da Empresa")
-        with st.form("cfg_form"):
-            n_v = df_cfg['nome'].iloc[0] if not df_cfg.empty else "PJ Gold"
-            s_v = df_cfg['slogam'].iloc[0] if not df_cfg.empty else ""
-            c_v = df_cfg['contato'].iloc[0] if not df_cfg.empty else ""
-            e_v = df_cfg['endereco'].iloc[0] if not df_cfg.empty else ""
-            n_marca = st.text_input("Marca", n_v); s_marca = st.text_input("Slogan", s_v)
-            c_marca = st.text_input("Zap", c_v); e_marca = st.text_area("Endereço", e_v)
-            if st.form_submit_button("Salvar"):
-                n_cfg = pd.DataFrame([{"nome": n_marca, "slogam": s_marca, "contato": c_marca, "endereco": e_marca}])
-                conn.update(spreadsheet=URL_PLANILHA, data=n_cfg, worksheet="Config_Empresa")
-                st.success("Salvo!"); st.rerun()
+        st.title("⚙️ Dados do Studio")
+        with st.form("config_form"):
+            nome = st.text_input("Nome do Studio", config_data['nome_studio'])
+            slogan = st.text_input("Slogan/Sub-título", config_data['sub_titulo'])
+            zap = st.text_input("WhatsApp de Contato", config_data['contato'])
+            mail = st.text_input("Email Profissional", config_data['email'])
+            end = st.text_input("Endereço", config_data['endereco'])
+            
+            if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
+                novos_dados = {
+                    "id": 1,
+                    "nome_studio": nome,
+                    "sub_titulo": slogan,
+                    "contato": zap,
+                    "email": mail,
+                    "endereco": end
+                }
+                # Upsert: Insere se não existir, atualiza se existir
+                conn.table("config").upsert([novos_dados]).execute()
+                st.success("Configurações atualizadas!")
+                st.rerun()
 
 if __name__ == "__main__":
     main()
