@@ -15,7 +15,7 @@ except Exception:
     st.error("Erro de conexão com o banco de dados.")
     st.stop()
 
-# --- CSS PRETO E OURO (BLINDAGEM TOTAL - IDENTIDADE VISUAL PJ STUDIO) ---
+# --- CSS PRETO E OURO (IDENTIDADE PJ STUDIO - BLOQUEADO PARA ALTERAÇÕES) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -30,7 +30,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNÇÕES DE CARREGAMENTO ---
+# --- FUNÇÕES ---
 def carregar_dados():
     try:
         proj = supabase.table("projetos").select("*").execute()
@@ -38,13 +38,13 @@ def carregar_dados():
         return proj.data, conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- MENU LATERAL (NÃO MEXER) ---
+# --- NAVEGAÇÃO ---
 with st.sidebar:
     st.markdown("## ⚜️ PJ STUDIO")
     st.write("---")
     menu = st.radio("NAVEGAÇÃO", ["PAINEL", "NOVO ORÇAMENTO", "GESTAO DE PROJETOS", "CONFIGURAÇOES"], label_visibility="collapsed")
 
-# --- LÓGICA DAS TELAS ---
+# --- TELAS ---
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
@@ -70,25 +70,26 @@ elif menu == "NOVO ORÇAMENTO":
         p_valor = col3.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
+        p_exig = st.text_area("Exigências Específicas") # CAMPO RECUPERADO
         
         if st.form_submit_button("SALVAR ORÇAMENTO"):
             if c_nome and p_nome:
                 dados = {
                     "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
                     "email_cliente": c_mail, "endereco": c_end, "nome_projeto": p_nome,
-                    "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc
+                    "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig
                 }
                 try:
                     supabase.table("projetos").insert(dados).execute()
-                    st.success("Orçamento salvo com sucesso!")
+                    st.success("✅ Orçamento salvo na nuvem!")
                 except Exception as e:
-                    st.error(f"Erro no banco de dados: {e}")
+                    st.error(f"Erro ao salvar: {e}")
             else:
                 st.warning("Preencha Nome do Cliente e do Projeto.")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO DE PROJETOS")
-    projetos, config = carregar_dados()
+    projetos, _ = carregar_dados()
     if not projetos: st.info("Nenhum projeto registrado.")
     for p in projetos:
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
@@ -113,6 +114,6 @@ elif menu == "CONFIGURAÇOES":
                 supabase.table("configuracoes").update({
                     "nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
                 }).eq("id", 1).execute()
-                st.success("Configurações atualizadas!")
+                st.success("✅ Configurações atualizadas!")
             except Exception as e:
-                st.error(f"Erro ao salvar configurações: {e}")
+                st.error(f"Erro ao salvar: {e}")
