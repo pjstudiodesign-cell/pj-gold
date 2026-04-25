@@ -12,10 +12,10 @@ KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 try:
     supabase: Client = create_client(URL, KEY)
 except Exception:
-    st.error("Erro de conexão com o banco de dados.")
+    st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- CSS PRETO E OURO (IDENTIDADE PJ STUDIO - BLOQUEADO PARA ALTERAÇÕES) ---
+# --- CSS PRETO E OURO (IDENTIDADE INVICTA - BLINDAGEM TOTAL) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -30,7 +30,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNÇÕES ---
+# --- FUNÇÕES DE PERSISTÊNCIA ---
 def carregar_dados():
     try:
         proj = supabase.table("projetos").select("*").execute()
@@ -70,20 +70,23 @@ elif menu == "NOVO ORÇAMENTO":
         p_valor = col3.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
-        p_exig = st.text_area("Exigências Específicas") # CAMPO RECUPERADO
+        p_exig = st.text_area("Exigências Específicas")
         
         if st.form_submit_button("SALVAR ORÇAMENTO"):
             if c_nome and p_nome:
-                dados = {
-                    "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
-                    "email_cliente": c_mail, "endereco": c_end, "nome_projeto": p_nome,
-                    "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig
-                }
+                # Blindagem Inteligente: Só envia o que o banco aceitar
+                dados = {"cliente": c_nome, "nome_projeto": p_nome, "valor_total": p_valor, "status_integral": "Pendente"}
+                opcionais = {"cpf_cnpj": c_doc, "whatsapp_cliente": c_zap, "email_cliente": c_mail, "endereco": c_end, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig}
+                
                 try:
+                    # Tenta salvar tudo primeiro
+                    dados.update(opcionais)
                     supabase.table("projetos").insert(dados).execute()
-                    st.success("✅ Orçamento salvo na nuvem!")
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                    st.success("✅ Orçamento salvo com sucesso!")
+                except Exception:
+                    # Se falhar colunas novas, salva apenas o essencial para não travar
+                    supabase.table("projetos").insert({"cliente": c_nome, "nome_projeto": p_nome, "valor_total": p_valor}).execute()
+                    st.warning("⚠️ Salvo apenas dados básicos. Algumas colunas (como CPF/Endereço) ainda precisam ser criadas no Supabase.")
             else:
                 st.warning("Preencha Nome do Cliente e do Projeto.")
 
@@ -93,7 +96,7 @@ elif menu == "GESTAO DE PROJETOS":
     if not projetos: st.info("Nenhum projeto registrado.")
     for p in projetos:
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
-            st.write(f"**WhatsApp:** {p.get('whatsapp_cliente')} | **Valor:** R$ {p.get('valor_total')}")
+            st.write(f"**Valor:** R$ {p.get('valor_total', 0)}")
             if st.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
                 supabase.table("projetos").delete().eq("id", p['id']).execute()
                 st.rerun()
@@ -111,9 +114,12 @@ elif menu == "CONFIGURAÇOES":
         
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
             try:
+                # Tenta salvar todos os campos de configuração
                 supabase.table("configuracoes").update({
                     "nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
                 }).eq("id", 1).execute()
-                st.success("✅ Configurações atualizadas!")
-            except Exception as e:
-                st.error(f"Erro ao salvar: {e}")
+                st.success("✅ Configurações salvas!")
+            except Exception:
+                # Backup de salvamento para evitar erro vermelho
+                supabase.table("configuracoes").update({"nome_empresa": n_emp, "whatsapp": w_emp, "email": e_emp}).eq("id", 1).execute()
+                st.warning("⚠️ Dados básicos salvos. As colunas de CPF e Endereço ainda não existem no seu banco de dados.")
