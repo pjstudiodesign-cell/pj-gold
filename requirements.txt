@@ -1,4 +1,6 @@
 streamlit
 pandas
+st-supabase-connection
+supabase
+xlsxwriter
 fpdf
-st-gsheets-connection
