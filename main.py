@@ -6,7 +6,7 @@ import pandas as pd
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
-# --- CONEXÃO SUPABASE (SEGURANÇA EM NUVEM - NADA SE PERDE) ---
+# --- CONEXÃO SUPABASE (ESTRUTURA BLINDADA) ---
 URL = "https://emrjgeukqueyyxzhbpro.supabase.co"
 KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 
@@ -16,7 +16,7 @@ except Exception:
     st.error("Erro na conexão com o banco de dados.")
     st.stop()
 
-# --- CSS PRETO E OURO PREMIUM (ESTRUTURA BLINDADA) ---
+# --- CSS PRETO E OURO PREMIUM (IDENTIDADE VISUAL PRESERVADA) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -31,6 +31,7 @@ st.markdown("""
     }
     h1, h2, h3 { color: #D4AF37 !important; font-weight: 800 !important; }
     div[data-testid="stMetricValue"] { color: #D4AF37 !important; font-size: 2.8rem !important; font-weight: bold; }
+    div[data-testid="stMetricLabel"] { color: #FFFFFF !important; }
     div[data-testid="stMetric"] { 
         background-color: #1c1c1c; 
         padding: 25px; 
@@ -43,6 +44,7 @@ st.markdown("""
         font-weight: bold !important; 
         border-radius: 10px !important;
         height: 45px;
+        width: 100%;
     }
     input, textarea, div[data-baseweb="select"] { 
         background-color: #1c1c1c !important; 
@@ -114,7 +116,8 @@ if menu == "PAINEL":
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    with st.form("orcamento_form", clear_on_submit=True):
+    # Blindagem: Removi o clear_on_submit para evitar perda de dados acidental
+    with st.form("orcamento_form"):
         st.subheader("Dados do Cliente")
         c_nome = st.text_input("Nome/Razão Social")
         col1, col2 = st.columns(2)
@@ -130,19 +133,25 @@ elif menu == "NOVO ORÇAMENTO":
         p_desc = st.text_area("Descrição do Serviço")
         p_exig = st.text_area("Exigências Específicas")
         
-        if st.form_submit_button("SALVAR ORÇAMENTO"):
-            if c_nome and p_nome:
+        # O botão agora exige preenchimento mínimo para evitar salvar vazio por erro de tecla
+        submit = st.form_submit_button("SALVAR ORÇAMENTO")
+        if submit:
+            if not c_nome or not p_nome:
+                st.warning("⚠️ Preencha pelo menos o Nome do Cliente e do Projeto antes de salvar.")
+            else:
                 supabase.table("projetos").insert({
                     "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
                     "endereco": c_end, "nome_projeto": p_nome, "valor_total": p_valor, 
                     "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig,
                     "status_integral": "Pendente"
                 }).execute()
-                st.success("Orçamento salvo na nuvem com segurança!")
-                st.rerun()
+                st.success("✅ Orçamento blindado e salvo na nuvem!")
+                st.balloons()
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
+    if not projetos:
+        st.info("Nenhum orçamento cadastrado.")
     for p in projetos:
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
             with st.form(f"edit_{p['id']}"):
@@ -151,10 +160,9 @@ elif menu == "GESTAO DE PROJETOS":
                 e_prazo = col_e2.text_input("Prazo", value=p.get('prazo', ''), key=f"prz_{p['id']}")
                 e_desc = st.text_area("Descrição", value=p.get('descricao', ''), key=f"des_{p['id']}")
                 
-                btn_up, btn_pdf, btn_del = st.columns([1,1,1])
-                if btn_up.form_submit_button("💾 SALVAR ALTERAÇÕES"):
+                if st.form_submit_button("💾 SALVAR ALTERAÇÕES"):
                     supabase.table("projetos").update({"valor_total": e_valor, "prazo": e_prazo, "descricao": e_desc}).eq("id", p['id']).execute()
-                    st.success("Alterado com sucesso!")
+                    st.success("Alteração salva!")
                     st.rerun()
             
             pdf_data = gerar_pdf_completo(p, config)
@@ -178,5 +186,5 @@ elif menu == "CONFIGURAÇOES":
             supabase.table("configuracoes").update({
                 "nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
             }).eq("id", 1).execute()
-            st.success("Dados da empresa salvos permanentemente!")
+            st.success("Dados atualizados!")
             st.rerun()
