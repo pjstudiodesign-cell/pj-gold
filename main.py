@@ -6,7 +6,7 @@ import pandas as pd
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
-# --- CONEXÃO SUPABASE (ESTRUTURA BLINDADA) ---
+# --- CONEXÃO SUPABASE (SEGURANÇA EM NUVEM - NADA SE PERDE) ---
 URL = "https://emrjgeukqueyyxzhbpro.supabase.co"
 KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 
@@ -16,7 +16,7 @@ except Exception:
     st.error("Erro na conexão com o banco de dados.")
     st.stop()
 
-# --- CSS PRETO E OURO PREMIUM (ESTRUTURA VISUAL MANTIDA) ---
+# --- CSS PRETO E OURO PREMIUM (ESTRUTURA BLINDADA) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -31,7 +31,6 @@ st.markdown("""
     }
     h1, h2, h3 { color: #D4AF37 !important; font-weight: 800 !important; }
     div[data-testid="stMetricValue"] { color: #D4AF37 !important; font-size: 2.8rem !important; font-weight: bold; }
-    div[data-testid="stMetricLabel"] { color: #FFFFFF !important; }
     div[data-testid="stMetric"] { 
         background-color: #1c1c1c; 
         padding: 25px; 
@@ -44,7 +43,6 @@ st.markdown("""
         font-weight: bold !important; 
         border-radius: 10px !important;
         height: 45px;
-        width: 100%;
     }
     input, textarea, div[data-baseweb="select"] { 
         background-color: #1c1c1c !important; 
@@ -71,15 +69,11 @@ def gerar_pdf_completo(dados, config, tipo="ORÇAMENTO"):
         pdf.set_text_color(212, 175, 55)
         pdf.cell(0, 15, f'{config.get("nome_empresa", "PJ STUDIO").upper()} - {tipo}', 0, 1, 'C')
         pdf.ln(5)
-        
-        # Cabeçalho da Empresa
         pdf.set_font("Arial", size=9)
         pdf.set_text_color(100, 100, 100)
-        info_empresa = f"CNPJ: {config.get('cpf_cnpj', '---')} | Contato: {config.get('whatsapp', '---')} | Email: {config.get('email', '---')}"
-        pdf.cell(0, 5, info_empresa, ln=True, align='C')
+        pdf.cell(0, 5, f"CNPJ: {config.get('cpf_cnpj', '---')} | Contato: {config.get('whatsapp', '---')}", ln=True, align='C')
         pdf.cell(0, 5, f"Endereço: {config.get('endereco', '---')}", ln=True, align='C')
         pdf.ln(10)
-        
         pdf.set_font("Arial", 'B', 12)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, "DADOS DO CLIENTE", ln=True)
@@ -87,22 +81,17 @@ def gerar_pdf_completo(dados, config, tipo="ORÇAMENTO"):
         pdf.cell(0, 8, f"Cliente: {dados.get('cliente')}", ln=True)
         pdf.cell(0, 8, f"CPF/CNPJ: {dados.get('cpf_cnpj', '---')}", ln=True)
         pdf.cell(0, 8, f"WhatsApp: {dados.get('whatsapp_cliente', '---')}", ln=True)
-        
         pdf.ln(5)
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(0, 10, "DETALHES DO SERVIÇO", ln=True)
         pdf.set_font("Arial", size=10)
         pdf.cell(0, 8, f"Projeto: {dados.get('nome_projeto')}", ln=True)
         pdf.cell(0, 8, f"Valor: R$ {float(dados.get('valor_total', 0)):.2f}", ln=True)
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(0, 8, f"PRAZO DE ENTREGA: {dados.get('prazo', 'A combinar')}", ln=True)
-        
+        pdf.cell(0, 8, f"PRAZO DE ENTREGA: {dados.get('prazo', '---')}", ln=True)
         pdf.ln(5)
         pdf.set_font("Arial", 'B', 10)
         pdf.cell(0, 8, "Descrição:", ln=True)
-        pdf.set_font("Arial", size=10)
         pdf.multi_cell(0, 7, dados.get('descricao', '---'))
-        
         return pdf.output(dest='S').encode('latin-1')
     except: return None
 
@@ -127,18 +116,17 @@ elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
     with st.form("orcamento_form", clear_on_submit=True):
         st.subheader("Dados do Cliente")
-        c_nome = st.text_input("Nome Completo / Razão Social")
+        c_nome = st.text_input("Nome/Razão Social")
         col1, col2 = st.columns(2)
-        c_doc = col1.text_input("CPF ou CNPJ (Cliente)")
-        c_zap = col2.text_input("WhatsApp (Cliente)")
+        c_doc = col1.text_input("CPF ou CNPJ")
+        c_zap = col2.text_input("WhatsApp")
         c_end = st.text_area("Endereço do Cliente")
-        
         st.write("---")
         st.subheader("Serviço e Prazo")
         p_nome = st.text_input("Nome do Projeto")
         col3, col4 = st.columns(2)
         p_valor = col3.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
-        p_prazo = col4.text_input("Prazo de Entrega (Ex: 5 dias úteis)")
+        p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
         p_exig = st.text_area("Exigências Específicas")
         
@@ -150,36 +138,45 @@ elif menu == "NOVO ORÇAMENTO":
                     "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig,
                     "status_integral": "Pendente"
                 }).execute()
-                st.success("Orçamento salvo!")
+                st.success("Orçamento salvo na nuvem com segurança!")
                 st.rerun()
 
 elif menu == "GESTAO DE PROJETOS":
-    st.title("📋 GESTÃO DE PROJETOS")
+    st.title("📋 GESTÃO E EDIÇÃO")
     for p in projetos:
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
-            st.write(f"**Prazo:** {p.get('prazo')} | **Valor:** R$ {p.get('valor_total')}")
-            col_b1, col_b2 = st.columns(2)
+            with st.form(f"edit_{p['id']}"):
+                col_e1, col_e2 = st.columns(2)
+                e_valor = col_e1.number_input("Valor", value=float(p.get('valor_total', 0)), key=f"val_{p['id']}")
+                e_prazo = col_e2.text_input("Prazo", value=p.get('prazo', ''), key=f"prz_{p['id']}")
+                e_desc = st.text_area("Descrição", value=p.get('descricao', ''), key=f"des_{p['id']}")
+                
+                btn_up, btn_pdf, btn_del = st.columns([1,1,1])
+                if btn_up.form_submit_button("💾 SALVAR ALTERAÇÕES"):
+                    supabase.table("projetos").update({"valor_total": e_valor, "prazo": e_prazo, "descricao": e_desc}).eq("id", p['id']).execute()
+                    st.success("Alterado com sucesso!")
+                    st.rerun()
+            
             pdf_data = gerar_pdf_completo(p, config)
             if pdf_data:
-                col_b1.download_button("📄 GERAR PDF ORÇAMENTO", pdf_data, f"Orc_{p.get('id')}.pdf", key=f"pdf_{p.get('id')}")
-            if col_b2.button("🗑️ EXCLUIR", key=f"del_{p.get('id')}"):
-                supabase.table("projetos").delete().eq("id", p.get('id')).execute()
+                st.download_button("📄 GERAR PDF", pdf_data, f"Orc_{p['id']}.pdf", key=f"pdf_{p['id']}")
+            
+            if st.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
+                supabase.table("projetos").delete().eq("id", p['id']).execute()
                 st.rerun()
 
 elif menu == "CONFIGURAÇOES":
     st.title("⚙️ DADOS DA MINHA EMPRESA")
     with st.form("cfg_completa"):
         n_emp = st.text_input("Nome da Empresa", value=config.get('nome_empresa', ''))
-        c_emp = st.text_input("CPF ou CNPJ da Empresa", value=config.get('cpf_cnpj', ''))
-        col5, col6 = st.columns(2)
-        w_emp = col5.text_input("WhatsApp Profissional", value=config.get('whatsapp', ''))
-        e_emp = col6.text_input("E-mail Profissional", value=config.get('email', ''))
+        c_emp = st.text_input("CPF ou CNPJ", value=config.get('cpf_cnpj', ''))
+        w_emp = st.text_input("WhatsApp", value=config.get('whatsapp', ''))
+        e_emp = st.text_input("E-mail", value=config.get('email', ''))
         end_emp = st.text_area("Endereço Completo", value=config.get('endereco', ''))
         
-        if st.form_submit_button("SALVAR DADOS DA EMPRESA"):
+        if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
             supabase.table("configuracoes").update({
-                "nome_empresa": n_emp, "cpf_cnpj": c_emp, 
-                "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
+                "nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
             }).eq("id", 1).execute()
-            st.success("Dados da empresa blindados!")
+            st.success("Dados da empresa salvos permanentemente!")
             st.rerun()
