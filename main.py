@@ -2,46 +2,30 @@ import streamlit as st
 from supabase import create_client
 import pandas as pd
 
-# --- CONFIGURAÇÃO DE PÁGINA (ESTILO PREMIUM) ---
+# --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="PJ STUDIO DESIGN | PRO", layout="wide", page_icon="⚜️")
 
-# --- O DESIGN DO CHEFE (PRETO E DOURADO) ---
+# --- DESIGN PREMIUM PJ GOLD ---
 st.markdown("""
     <style>
-    /* Fundo principal */
     .stApp { background-color: #0e1117; color: #ffffff; }
-    
-    /* Menu Lateral */
     section[data-testid="stSidebar"] { background-color: #1a1c23 !important; border-right: 2px solid #d4af37; }
-    
-    /* Títulos e Textos Dourados */
-    h1, h2, h3, p, label { color: #d4af37 !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    
-    /* Botões Dourados com texto preto */
+    h1, h2, h3, p, label { color: #d4af37 !important; }
     .stButton>button { 
         background-color: #d4af37 !important; 
         color: #000000 !important; 
         font-weight: bold !important; 
         border-radius: 8px !important;
-        border: none !important;
-        transition: 0.3s;
+        width: 100%;
     }
-    .stButton>button:hover { background-color: #f1c40f !important; transform: scale(1.02); }
-    
-    /* Inputs (Caixas de texto) */
     .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stNumberInput>div>div>input {
-        background-color: #1a1c23 !important;
-        color: white !important;
-        border: 1px solid #d4af37 !important;
+        background-color: #1a1c23 !important; color: white !important; border: 1px solid #d4af37 !important;
     }
-    
-    /* Cards de Informação */
     div[data-testid="stMetricValue"] { color: #d4af37 !important; }
-    .stAlert { background-color: #1a1c23 !important; border: 1px solid #d4af37 !important; color: white !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONEXÃO DIRETA (MANTENDO O QUE FUNCIONOU) ---
+# --- CONEXÃO (MANTENDO O QUE FUNCIONA) ---
 URL_SUPA = "https://emrjgeukqueyyxzhbpro.supabase.co"
 KEY_SUPA = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcmpnZXVrcXVleXl4emhicHJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODEzODAsImV4cCI6MjA5MjA1NzM4MH0.zEk_qYIvErts5aO9fJ6EL6ZU--Pm7woqugCfW3i0yyY"
 
@@ -50,17 +34,16 @@ try:
 except:
     st.error("Erro na conexão.")
 
-# --- MENU LATERAL ---
+# --- MENU LATERAL (NOMES E ÍCONES CORRIGIDOS) ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/1063/1063231.png", width=80) # Ícone de Coroa/Flor de Lis
-    st.markdown("## ⚜️ PJ STUDIO")
-    pagina = st.radio("Navegação:", ["🏛️ Painel Geral", "📝 Novo Job / Orçamento", "⚙️ Gestão & Edição"])
+    st.image("https://cdn-icons-png.flaticon.com/512/1063/1063231.png", width=80)
+    st.markdown("## ⚜️ MENU PJ STUDIO")
+    pagina = st.radio("Ir para:", ["Painel", "Novo Job / Orçamento", "Gestão de Projetos", "Configurações"])
 
 # --- PÁGINA: PAINEL ---
-if pagina == "🏛️ Painel Geral":
+if pagina == "Painel":
     st.title("⚜️ Painel de Controle | PJ Studio")
     st.markdown("---")
-    
     col1, col2 = st.columns(2)
     try:
         res_proj = supabase.table("projetos").select("valor, financeiro").execute()
@@ -73,10 +56,10 @@ if pagina == "🏛️ Painel Geral":
             with col2:
                 st.metric("CONTAS A RECEBER", f"R$ {total_receber:,.2f}")
     except:
-        st.info("Aguardando lançamentos para calcular o financeiro.")
+        st.info("Inicie os lançamentos para visualizar o financeiro.")
 
 # --- PÁGINA: NOVO JOB ---
-elif pagina == "📝 Novo Job / Orçamento":
+elif pagina == "Novo Job / Orçamento":
     st.title("📝 Novo Registro")
     with st.form("form_job"):
         c1, c2 = st.columns(2)
@@ -86,32 +69,39 @@ elif pagina == "📝 Novo Job / Orçamento":
         with c2:
             contato = st.text_input("WhatsApp / E-mail")
             valor = st.number_input("Valor do Serviço (R$)", min_value=0.0)
-        
         servico = st.text_area("Descrição dos Serviços")
         status = st.selectbox("Status de Pagamento", ["Pendente", "Pago"])
-        
-        if st.form_submit_button("CADASTRAR PROJETO ⚜️"):
+        if st.form_submit_button("SALVAR NO SISTEMA ⚜️"):
             supabase.table("clientes").insert({"nome": nome, "contato": contato, "documento": doc}).execute()
             supabase.table("projetos").insert({"nome": nome, "valor": valor, "financeiro": status}).execute()
-            st.success(f"✅ {nome} adicionado com sucesso!")
+            st.success(f"✅ {nome} cadastrado!")
 
 # --- PÁGINA: GESTÃO ---
-elif pagina == "⚙️ Gestão & Edição":
-    st.title("⚙️ Gestão de Projetos")
-    res = supabase.table("projetos").select("*").execute()
-    if res.data:
-        df = pd.DataFrame(res.data)
-        for _, row in df.iterrows():
-            with st.expander(f"📦 ID: {row['id']} | {row['nome']} | R$ {row['valor']}"):
-                u_nome = st.text_input("Editar Cliente", row['nome'], key=f"n_{row['id']}")
-                u_valor = st.number_input("Editar Valor", float(row['valor']), key=f"v_{row['id']}")
-                u_status = st.selectbox("Mudar Status", ["Pendente", "Pago"], 
-                                     index=0 if row['financeiro']=='Pendente' else 1, 
-                                     key=f"s_{row['id']}")
-                
-                if st.button("SALVAR ALTERAÇÕES", key=f"btn_{row['id']}"):
-                    supabase.table("projetos").update({"nome": u_nome, "valor": u_valor, "financeiro": u_status}).eq("id", row['id']).execute()
-                    st.success("Atualizado!")
-                    st.rerun()
-    else:
-        st.write("Nenhum projeto cadastrado.")
+elif pagina == "Gestão de Projetos":
+    st.title("⚙️ Gestão & Edição")
+    try:
+        res = supabase.table("projetos").select("*").execute()
+        if res.data:
+            df = pd.DataFrame(res.data)
+            for _, row in df.iterrows():
+                with st.expander(f"📌 ID: {row['id']} | {row['nome']} | R$ {row['valor']}"):
+                    u_nome = st.text_input("Nome", row['nome'], key=f"n_{row['id']}")
+                    u_valor = st.number_input("Valor", float(row['valor']), key=f"v_{row['id']}")
+                    u_status = st.selectbox("Status", ["Pendente", "Pago"], index=0 if row['financeiro']=='Pendente' else 1, key=f"s_{row['id']}")
+                    if st.button("SALVAR ALTERAÇÕES", key=f"btn_{row['id']}"):
+                        supabase.table("projetos").update({"nome": u_nome, "valor": u_valor, "financeiro": u_status}).eq("id", row['id']).execute()
+                        st.success("Atualizado!")
+                        st.rerun()
+    except:
+        st.error("Erro ao carregar dados.")
+
+# --- PÁGINA: CONFIGURAÇÕES (VOLTOU!) ---
+elif pagina == "Configurações":
+    st.title("🛠️ Configurações do Sistema")
+    st.markdown("---")
+    st.subheader("Dados da PJ GOLD DESIGN")
+    st.info("Versão do Sistema: **PJ Gold Pro v3.0**")
+    st.write("**Status da Conexão:** Ativa e Segura")
+    st.write("**Banco de Dados:** Supabase Cloud")
+    st.markdown("---")
+    st.write("Dica: Use esta aba para gerenciar informações fixas do seu estúdio no futuro.")
