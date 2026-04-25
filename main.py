@@ -1,8 +1,7 @@
 import streamlit as st
 from supabase import create_client, Client
-from fpdf import FPDF
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+# --- CONFIGURAÇÃO DA PÁGINA (ESTÁTICA E BLINDADA) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
 # --- CONEXÃO SUPABASE ---
@@ -12,10 +11,10 @@ KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 try:
     supabase: Client = create_client(URL, KEY)
 except Exception:
-    st.error("Erro crítico de conexão.")
+    st.error("Erro crítico de conexão com o banco de dados.")
     st.stop()
 
-# --- CSS PRETO E OURO (IDENTIDADE INVICTA - NÃO TOCAR) ---
+# --- CSS PRETO E OURO (IDENTIDADE VISUAL INVICTA - NÃO TOCAR) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -30,7 +29,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNÇÕES DE PERSISTÊNCIA ---
+# --- FUNÇÕES DE CARREGAMENTO ---
 def carregar_dados():
     try:
         proj = supabase.table("projetos").select("*").execute()
@@ -38,13 +37,13 @@ def carregar_dados():
         return proj.data, conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- NAVEGAÇÃO ---
+# --- NAVEGAÇÃO LATERAL (BLINDAGEM TOTAL) ---
 with st.sidebar:
     st.markdown("## ⚜️ PJ STUDIO")
     st.write("---")
     menu = st.radio("NAVEGAÇÃO", ["PAINEL", "NOVO ORÇAMENTO", "GESTAO DE PROJETOS", "CONFIGURAÇOES"], label_visibility="collapsed")
 
-# --- TELAS ---
+# --- LÓGICA DAS TELAS ---
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
@@ -74,7 +73,6 @@ elif menu == "NOVO ORÇAMENTO":
         
         if st.form_submit_button("SALVAR ORÇAMENTO"):
             if c_nome and p_nome:
-                # Blindagem: Tenta salvar tudo, se falhar salva o básico para não perder o serviço
                 try:
                     dados_full = {
                         "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
@@ -82,12 +80,11 @@ elif menu == "NOVO ORÇAMENTO":
                         "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig
                     }
                     supabase.table("projetos").insert(dados_full).execute()
-                    st.success("✅ Orçamento salvo com sucesso!")
+                    st.success("✅ Orçamento salvo na nuvem!")
                 except Exception:
                     supabase.table("projetos").insert({"cliente": c_nome, "nome_projeto": p_nome, "valor_total": p_valor}).execute()
-                    st.warning("⚠️ Dados básicos salvos. Colunas extras precisam ser criadas no Supabase.")
-            else:
-                st.warning("Preencha Nome do Cliente e do Projeto.")
+                    st.warning("⚠️ Salvo apenas dados básicos (Nome e Valor). Colunas extras precisam ser criadas no banco.")
+            else: st.warning("Preencha os campos obrigatórios.")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO DE PROJETOS")
@@ -113,12 +110,10 @@ elif menu == "CONFIGURAÇOES":
         
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
             try:
-                # Tenta atualizar todos os campos aprovados
                 supabase.table("configuracoes").update({
                     "nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
                 }).eq("id", 1).execute()
-                st.success("✅ Configurações salvas!")
+                st.success("✅ Configurações da PJ Studio atualizadas!")
             except Exception:
-                # Salva o que o banco permite para não dar erro vermelho
                 supabase.table("configuracoes").update({"nome_empresa": n_emp, "whatsapp": w_emp, "email": e_emp}).eq("id", 1).execute()
-                st.warning("⚠️ Salvo apenas dados básicos (Nome/Zap/Email).")
+                st.warning("⚠️ Salvo apenas Nome, Zap e Email. CPF e Endereço aguardam criação de coluna no banco.")
