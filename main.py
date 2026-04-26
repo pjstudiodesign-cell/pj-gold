@@ -1,6 +1,5 @@
 import streamlit as st
 from supabase import create_client, Client
-import pandas as pd
 
 # --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (IMUTÁVEL) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
@@ -49,10 +48,28 @@ with st.sidebar:
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
-    recebido = sum([float(p.get('valor_total', 0) or 0) for p in projetos if p.get('status_total') == 'Recebido'])
-    a_receber = sum([float(p.get('valor_total', 0) or 0) for p in projetos if p.get('status_total') != 'Recebido'])
+    
+    no_bolso = 0.0
+    a_receber = 0.0
+    
+    for p in projetos:
+        valor_total = float(p.get('valor_total', 0) or 0)
+        metade = valor_total / 2
+        
+        # Lógica 50% Entrada (Somando no Bolso se recebido)
+        if p.get('status_entrada') == 'Recebido':
+            no_bolso += metade
+        else:
+            a_receber += metade
+            
+        # Lógica 50% Final
+        if p.get('status_final') == 'Recebido':
+            no_bolso += metade
+        else:
+            a_receber += metade
+
     c1, c2 = st.columns(2)
-    c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {recebido:,.2f}")
+    c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {no_bolso:,.2f}")
     c2.metric("⏳ CONTAS A RECEBER", f"R$ {a_receber:,.2f}")
 
 elif menu == "NOVO ORÇAMENTO":
@@ -79,7 +96,8 @@ elif menu == "NOVO ORÇAMENTO":
                     "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
                     "email_cliente": c_mail, "endereco": c_end, "nome_projeto": p_nome,
                     "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, 
-                    "exigencias": p_exig, "status_total": "Pendente", "status_entrada": "Pendente", "status_final": "Pendente"
+                    "exigencias": p_exig, "status_total": "Pendente", 
+                    "status_entrada": "Pendente", "status_final": "Pendente"
                 }).execute()
                 st.success("✅ Orçamento salvo!")
                 st.rerun()
@@ -89,13 +107,11 @@ elif menu == "GESTAO DE PROJETOS":
     projetos, config = carregar_dados()
     for p in projetos:
         with st.expander(f"📌 PROJETO: {p.get('nome_projeto')} | CLIENTE: {p.get('cliente')}"):
-            # ÁREA DE EDIÇÃO
             col_ed1, col_ed2 = st.columns(2)
             novo_nome = col_ed1.text_input("Editar Nome Projeto", value=p.get('nome_projeto'), key=f"n_{p['id']}")
             novo_cliente = col_ed2.text_input("Editar Cliente", value=p.get('cliente'), key=f"c_{p['id']}")
             nova_desc = st.text_area("Editar Descrição", value=p.get('descricao'), key=f"d_{p['id']}")
             
-            # ÁREA FINANCEIRA 50/50
             st.write("---")
             st.subheader("Controle de Pagamentos (50/50)")
             f1, f2, f3 = st.columns(3)
@@ -103,7 +119,6 @@ elif menu == "GESTAO DE PROJETOS":
             v_ent = f2.selectbox("ENTRADA (50%)", ["Pendente", "Recebido"], index=0 if p.get('status_entrada') == "Pendente" else 1, key=f"se_{p['id']}")
             v_fin = f3.selectbox("FINAL (50%)", ["Pendente", "Recebido"], index=0 if p.get('status_final') == "Pendente" else 1, key=f"sf_{p['id']}")
             
-            # BOTÕES DE AÇÃO
             st.write("---")
             b1, b2, b3, b4 = st.columns(4)
             if b1.button("💾 ATUALIZAR", key=f"upd_{p['id']}"):
@@ -114,10 +129,10 @@ elif menu == "GESTAO DE PROJETOS":
                 st.rerun()
             
             if b2.button("📄 GERAR PDF", key=f"pdf_{p['id']}"):
-                st.info("Função PDF em integração com os dados da empresa...")
+                st.info("Função PDF em integração...")
             
             if b3.button("🧾 RECIBO", key=f"rec_{p['id']}"):
-                st.info(f"Gerando recibo de R$ {float(p.get('valor_total',0))/2:.2f}...")
+                st.info(f"Gerando recibo de 50%...")
                 
             if b4.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
                 supabase.table("projetos").delete().eq("id", p['id']).execute()
@@ -133,5 +148,8 @@ elif menu == "CONFIGURAÇOES":
         e_emp = st.text_input("E-mail Profissional", value=config.get('email', ''))
         end_emp = st.text_area("Endereço Completo", value=config.get('endereco', ''))
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
-            supabase.table("configuracoes").update({"nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp}).eq("id", 1).execute()
+            supabase.table("configuracoes").update({
+                "nome_empresa": n_emp, "cpf_cnpj": c_emp, 
+                "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
+            }).eq("id", 1).execute()
             st.rerun()
