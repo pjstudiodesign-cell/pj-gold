@@ -40,61 +40,62 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-def criar_pdf_orcamento(p, c):
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # --- CABEÇALHO DA EMPRESA (DADOS COMPLETOS DAS CONFIGURAÇÕES) ---
-    pdf.set_fill_color(212, 175, 55) # Cor Ouro Profissional
+def configurar_cabecalho(pdf, c):
+    pdf.set_fill_color(212, 175, 55) # Cor Ouro
     pdf.rect(0, 0, 210, 45, 'F')
-    
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, f"{c.get('nome_empresa', 'PJ STUDIO')}", ln=True, align='C')
-    
     pdf.set_font("Arial", '', 9)
-    # Linha de Documento e Contato
     pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | WhatsApp: {c.get('whatsapp', '')} | E-mail: {c.get('email', '')}", ln=True, align='C')
-    # Linha de Endereço Completo
     pdf.multi_cell(0, 5, f"Endereço: {c.get('endereco', '')}", align='C')
+    pdf.ln(10)
+
+def gerar_pdf(tipo, p, c):
+    pdf = FPDF()
+    pdf.add_page()
+    configurar_cabecalho(pdf, c)
     
-    pdf.ln(15)
-    
-    # Título do Orçamento
     pdf.set_font("Arial", 'B', 14)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, f"ORÇAMENTO PROFISSIONAL: {p.get('nome_projeto')}", ln=True, align='L')
-    pdf.line(10, 60, 200, 60)
-    
-    # Dados do Cliente
+    titulo = "ORÇAMENTO PROFISSIONAL" if tipo == "ORC" else "RECIBO DE PAGAMENTO"
+    pdf.cell(0, 10, f"{titulo}: {p.get('nome_projeto')}", ln=True, align='L')
+    pdf.line(10, 55, 200, 55)
     pdf.ln(5)
+    
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(0, 8, "DADOS DO CLIENTE:", ln=True)
     pdf.set_font("Arial", '', 11)
     pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
     pdf.cell(0, 6, f"Documento: {p.get('cpf_cnpj', 'N/I')}", ln=True)
     pdf.cell(0, 6, f"WhatsApp: {p.get('whatsapp_cliente', 'N/I')}", ln=True)
-    pdf.cell(0, 6, f"Endereço: {p.get('endereco', 'N/I')}", ln=True)
     
-    # Detalhes do Serviço
     pdf.ln(5)
-    pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 8, "DETALHES DO SERVIÇO:", ln=True)
-    pdf.set_font("Arial", '', 11)
-    pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', 'N/I')}")
-    pdf.multi_cell(0, 6, f"Exigências: {p.get('exigencias', 'N/I')}")
-    pdf.cell(0, 6, f"Prazo de Entrega: {p.get('prazo', 'A combinar')}", ln=True)
-    
-    # Rodapé Financeiro
+    if tipo == "ORC":
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, "DETALHES DO SERVIÇO:", ln=True)
+        pdf.set_font("Arial", '', 11)
+        pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', 'N/I')}")
+        pdf.multi_cell(0, 6, f"Exigências: {p.get('exigencias', 'N/I')}")
+    else:
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, "DECLARAÇÃO DE RECEBIMENTO:", ln=True)
+        pdf.set_font("Arial", '', 11)
+        valor_recibo = float(p.get('valor_total', 0))
+        # Se for entrada recebida mas final pendente, recibo é dos 50%
+        if p.get('status_entrada') == 'Recebido' and p.get('status_final') == 'Pendente':
+            valor_recibo = valor_recibo / 2
+            texto_recibo = f"Recebemos a importância de R$ {valor_recibo:,.2f} referente à ENTRADA (50%) do projeto {p.get('nome_projeto')}."
+        else:
+            texto_recibo = f"Recebemos a importância de R$ {valor_recibo:,.2f} referente à QUITAÇÃO INTEGRAL do projeto {p.get('nome_projeto')}."
+        pdf.multi_cell(0, 8, texto_recibo)
+
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
-    pdf.set_font("Arial", 'I', 10)
-    pdf.cell(0, 8, "Condição: 50% de entrada e 50% na entrega final.", ln=True, align='R')
+    pdf.cell(0, 10, f"VALOR: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
     
     return pdf.output(dest='S').encode('latin-1')
 
-# --- 5. NAVEGAÇÃO (BLINDADA) ---
+# --- 5. NAVEGAÇÃO ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center;'>⚜️ PJ STUDIO</h2>", unsafe_allow_html=True)
     st.write("---")
@@ -166,14 +167,17 @@ elif menu == "GESTAO DE PROJETOS":
                 }).eq("id", p['id']).execute()
                 st.rerun()
             
+            # --- PDF ORÇAMENTO ---
             try:
-                pdf_output = criar_pdf_orcamento(p, config)
-                b2.download_button(label="📄 BAIXAR PDF", data=pdf_output, file_name=f"Orcamento_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_{p['id']}")
-            except:
-                b2.error("Erro ao gerar PDF")
-            
-            if b3.button("🧾 RECIBO", key=f"rec_{p['id']}"):
-                st.info("Função Recibo em integração...")
+                pdf_orc = gerar_pdf("ORC", p, config)
+                b2.download_button(label="📄 ORÇAMENTO", data=pdf_orc, file_name=f"Orcamento_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_orc_{p['id']}")
+            except: b2.error("Erro PDF")
+
+            # --- PDF RECIBO (ATIVADO) ---
+            try:
+                pdf_rec = gerar_pdf("REC", p, config)
+                b3.download_button(label="🧾 RECIBO", data=pdf_rec, file_name=f"Recibo_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_rec_{p['id']}")
+            except: b3.error("Erro Recibo")
                 
             if b4.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
                 supabase.table("projetos").delete().eq("id", p['id']).execute()
