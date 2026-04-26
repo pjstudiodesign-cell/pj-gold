@@ -14,7 +14,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (LACRADO) ---
+# --- 3. CSS PRETO E OURO (LACRADO - NÃO MEXER) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -47,14 +47,28 @@ with st.sidebar:
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
-    no_bolso = sum([float(p.get('valor_total', 0)) for p in projetos if p.get('status_integral') == 'Recebido'])
+    
+    # LÓGICA DE SOMA ULTRA-DETALHISTA E SEGURA
+    # Soma TUDO o que for valor para garantir que apareça no painel
+    total_geral = 0
+    recebido = 0
+    
+    for p in projetos:
+        valor = float(p.get('valor_total', 0) or 0)
+        status = p.get('status_integral', 'Pendente')
+        
+        if status == 'Recebido':
+            recebido += valor
+        else:
+            total_geral += valor
+
     c1, c2 = st.columns(2)
-    c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {no_bolso:,.2f}")
-    c2.metric("⏳ CONTAS A RECEBER", "R$ 0.00")
+    c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {recebido:,.2f}")
+    c2.metric("⏳ CONTAS A RECEBER", f"R$ {total_geral:,.2f}")
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    with st.form("orcamento_form"):
+    with st.form("orcamento_form", clear_on_submit=False):
         st.subheader("Dados do Cliente")
         c_nome = st.text_input("Nome/Razão Social")
         col1, col2 = st.columns(2)
@@ -73,26 +87,20 @@ elif menu == "NOVO ORÇAMENTO":
         
         if st.form_submit_button("GERAR E SALVAR ORÇAMENTO"):
             if c_nome and p_nome:
-                # DADOS ORGANIZADOS PARA O BANCO
                 dados = {
                     "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
                     "email_cliente": c_mail, "endereco": c_end, "nome_projeto": p_nome,
-                    "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, "exigencias": p_exig
+                    "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, 
+                    "exigencias": p_exig, "status_integral": "Pendente"
                 }
                 try:
-                    # TENTATIVA DE SALVAMENTO BLINDADA
                     supabase.table("projetos").insert(dados).execute()
-                    st.success("✅ Orçamento salvo com sucesso na PJ STUDIO!")
+                    st.success("✅ Orçamento salvo com sucesso!")
+                    st.rerun()
                 except Exception as e:
-                    # SE O BANCO DER ERRO DE COLUNA, ELE SALVA O BÁSICO PARA NÃO TRAVAR VOCÊ
-                    st.warning("⚠️ O banco de dados está atualizando. Tentando salvamento de segurança...")
-                    try:
-                        supabase.table("projetos").insert({"cliente": c_nome, "nome_projeto": p_nome, "valor_total": p_valor}).execute()
-                        st.success("✅ Dados básicos salvos! As novas colunas estarão ativas em instantes.")
-                    except:
-                        st.error("Erro técnico no banco. Por favor, aguarde 1 minuto e tente novamente.")
+                    st.error(f"Erro ao salvar: {e}")
             else:
-                st.warning("Preencha os campos obrigatórios (Nome do Cliente e Projeto).")
+                st.warning("Preencha Nome do Cliente e do Projeto.")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO DE PROJETOS")
@@ -101,9 +109,17 @@ elif menu == "GESTAO DE PROJETOS":
         st.info("Nenhum projeto encontrado.")
     else:
         for p in projetos:
-            with st.expander(f"📌 {p.get('nome_projeto', 'Sem Nome')} | {p.get('cliente', 'Sem Cliente')}"):
-                st.write(f"**Valor:** R$ {p.get('valor_total', 0)}")
-                st.write(f"**Prazo:** {p.get('prazo', 'N/A')}")
+            with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
+                col_a, col_b = st.columns(2)
+                col_a.write(f"**Valor:** R$ {p.get('valor_total', 0)}")
+                col_a.write(f"**Prazo:** {p.get('prazo', 'N/A')}")
+                col_b.write(f"**WhatsApp:** {p.get('whatsapp_cliente', 'N/A')}")
+                
+                # Botão para simular recebimento (detalhe para o painel funcionar)
+                if st.button("✅ MARCAR COMO RECEBIDO", key=f"rec_{p.get('id')}"):
+                    supabase.table("projetos").update({"status_integral": "Recebido"}).eq("id", p.get('id')).execute()
+                    st.rerun()
+
                 if st.button("🗑️ EXCLUIR", key=f"del_{p.get('id')}"):
                     supabase.table("projetos").delete().eq("id", p.get('id')).execute()
                     st.rerun()
@@ -113,10 +129,13 @@ elif menu == "CONFIGURAÇOES":
     _, config = carregar_dados()
     with st.form("cfg"):
         n_emp = st.text_input("Nome da Empresa", value=config.get('nome_empresa', ''))
-        c_emp = st.text_input("CPF ou CNPJ", value=config.get('cpf_cnpj', ''))
-        w_emp = st.text_input("WhatsApp", value=config.get('whatsapp', ''))
-        e_emp = st.text_input("E-mail", value=config.get('email', ''))
-        end_emp = st.text_area("Endereço", value=config.get('endereco', ''))
+        c_emp = st.text_input("CPF ou CNPJ da Empresa", value=config.get('cpf_cnpj', ''))
+        w_emp = st.text_input("WhatsApp Profissional", value=config.get('whatsapp', ''))
+        e_emp = st.text_input("E-mail Profissional", value=config.get('email', ''))
+        end_emp = st.text_area("Endereço Completo", value=config.get('endereco', ''))
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
-            supabase.table("configuracoes").update({"nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp}).eq("id", 1).execute()
+            supabase.table("configuracoes").update({
+                "nome_empresa": n_emp, "cpf_cnpj": c_emp, 
+                "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
+            }).eq("id", 1).execute()
             st.success("✅ Configurações atualizadas!")
