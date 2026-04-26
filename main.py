@@ -3,7 +3,7 @@ from supabase import create_client, Client
 from fpdf import FPDF
 from datetime import datetime
 
-# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL ---
+# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (PJ GOLD) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
 # --- 2. CONEXÃO SUPABASE (ESTRUTURA LACRADA) ---
@@ -16,7 +16,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (IDENTIDADE INALTERÁVEL) ---
+# --- 3. CSS PRETO E OURO (RESPEITO TOTAL À IDENTIDADE) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -37,7 +37,7 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 4. GERAÇÃO DE DOCUMENTOS (REGRAS 50/50 E CONTRATO DE 1 PÁGINA) ---
+# --- 4. GERAÇÃO DE DOCUMENTOS (REGRAS 50/50 E CONTRATO IDENTITÁRIO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
@@ -57,7 +57,6 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 6, f"CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}", ln=True)
         pdf.cell(0, 6, f"CONTRATADO: {c.get('nome_empresa')} | {c.get('email')} | WhatsApp: {c.get('whatsapp')} | Barra Mansa - RJ", ln=True)
         pdf.ln(5)
-        # Cláusulas fixas conforme o PDF original
         clausulas = [
             f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('descricao', 'conforme acordo')}).",
             f"2. PRAZO: O prazo será de {p.get('prazo', 'combinar')}, iniciando após confirmação do pagamento da entrada.",
@@ -113,12 +112,16 @@ elif menu == "NOVO ORÇAMENTO":
         nome = st.text_input("Cliente")
         c1, c2 = st.columns(2)
         doc = c1.text_input("CPF/CNPJ"); zap = c2.text_input("WhatsApp")
+        # --- BLINDAGEM: CAMPOS RESTAURADOS ---
+        email_cli = st.text_input("E-mail do Cliente")
+        end_cli = st.text_input("Endereço do Cliente")
         proj = st.text_input("Projeto")
         desc = st.text_area("Descrição do Serviço")
         prazo = st.text_input("Prazo (ex: 20 dias úteis)")
         val = st.number_input("Valor Total", step=0.01)
         if st.form_submit_button("SALVAR"):
-            supabase.table("projetos").insert({"cliente":nome, "cpf_cnpj":doc, "whatsapp_cliente":zap, "nome_projeto":proj, "descricao":desc, "prazo":prazo, "valor_total":val, "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"}).execute(); st.rerun()
+            # Salvando com todos os campos restaurados
+            supabase.table("projetos").insert({"cliente":nome, "cpf_cnpj":doc, "whatsapp_cliente":zap, "email_cliente":email_cli, "endereco_cliente":end_cli, "nome_projeto":proj, "descricao":desc, "prazo":prazo, "valor_total":val, "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"}).execute(); st.rerun()
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO DE PROJETOS")
@@ -129,6 +132,8 @@ elif menu == "GESTAO DE PROJETOS":
                 ca, cb = st.columns(2)
                 e_nome = ca.text_input("Cliente", p['cliente'])
                 e_doc = cb.text_input("CPF/CNPJ", p['cpf_cnpj'])
+                e_email = st.text_input("E-mail do Cliente", p.get('email_cliente', ''))
+                e_end = st.text_input("Endereço do Cliente", p.get('endereco_cliente', ''))
                 e_proj = st.text_input("Nome do Projeto", p['nome_projeto'])
                 e_desc = st.text_area("Descrição", p.get('descricao', ''))
                 cc, cd = st.columns(2)
@@ -139,8 +144,7 @@ elif menu == "GESTAO DE PROJETOS":
                 v_e = f2.selectbox("ENTRADA (50%)", ["Pendente", "Recebido"], index=0 if p['status_entrada']=="Pendente" else 1)
                 v_f = f3.selectbox("FINAL (50%)", ["Pendente", "Recebido"], index=0 if p['status_final']=="Pendente" else 1)
                 if st.form_submit_button("💾 ATUALIZAR DADOS"):
-                    # BLINDAGEM: Atualiza apenas colunas existentes no banco
-                    supabase.table("projetos").update({"cliente":e_nome, "cpf_cnpj":e_doc, "nome_projeto":e_proj, "descricao":e_desc, "valor_total":e_v, "prazo":e_p, "status_total":v_t, "status_entrada":v_e, "status_final":v_f}).eq("id", p['id']).execute(); st.rerun()
+                    supabase.table("projetos").update({"cliente":e_nome, "cpf_cnpj":e_doc, "email_cliente":e_email, "endereco_cliente":e_end, "nome_projeto":e_proj, "descricao":e_desc, "valor_total":e_v, "prazo":e_p, "status_total":v_t, "status_entrada":v_e, "status_final":v_f}).eq("id", p['id']).execute(); st.rerun()
             
             st.markdown("<hr>", unsafe_allow_html=True)
             st.write("### 🖨️ Gerar Documentos")
