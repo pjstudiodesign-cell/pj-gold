@@ -3,10 +3,10 @@ from supabase import create_client, Client
 from fpdf import FPDF
 from datetime import datetime
 
-# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (PJ GOLD) ---
+# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
-# --- 2. CONEXÃO SUPABASE (ESTRUTURA LACRADA) ---
+# --- 2. CONEXÃO SUPABASE (ESTRUTURA IMUTÁVEL) ---
 URL = "https://emrjgeukqueyyxzhbpro.supabase.co"
 KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 
@@ -16,7 +16,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (RESPEITO TOTAL À IDENTIDADE) ---
+# --- 3. CSS PRETO E OURO ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -37,7 +37,7 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 4. GERAÇÃO DE DOCUMENTOS (REGRAS 50/50 E CONTRATO IDENTITÁRIO) ---
+# --- 4. GERAÇÃO DE DOCUMENTOS (IDENTIDADE E REGRAS 50/50) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
@@ -100,7 +100,7 @@ with st.sidebar:
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projs, _ = carregar_dados()
-    no_bolso = sum([float(p['valor_total']) if p['status_total']=='Recebido' else (float(p['valor_total'])/2 if p['status_entrada']=='Recebido' else 0) + (float(p['valor_total'])/2 if p['status_final']=='Recebido' else 0) for p in projs])
+    no_bolso = sum([float(p['valor_total']) if p.get('status_total')=='Recebido' else (float(p.get('valor_total',0))/2 if p.get('status_entrada')=='Recebido' else 0) + (float(p.get('valor_total',0))/2 if p.get('status_final')=='Recebido' else 0) for p in projs])
     total = sum([float(p['valor_total']) for p in projs])
     c1, c2 = st.columns(2)
     c1.metric("💰 NO BOLSO", f"R$ {no_bolso:,.2f}")
@@ -108,20 +108,30 @@ if menu == "PAINEL":
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    with st.form("f_orc"):
+    with st.form("f_orc", clear_on_submit=True):
         nome = st.text_input("Cliente")
         c1, c2 = st.columns(2)
         doc = c1.text_input("CPF/CNPJ"); zap = c2.text_input("WhatsApp")
-        # --- BLINDAGEM: CAMPOS RESTAURADOS ---
-        email_cli = st.text_input("E-mail do Cliente")
+        e_cli = st.text_input("E-mail do Cliente")
         end_cli = st.text_input("Endereço do Cliente")
-        proj = st.text_input("Projeto")
+        proj_n = st.text_input("Projeto")
         desc = st.text_area("Descrição do Serviço")
         prazo = st.text_input("Prazo (ex: 20 dias úteis)")
         val = st.number_input("Valor Total", step=0.01)
-        if st.form_submit_button("SALVAR"):
-            # Salvando com todos os campos restaurados
-            supabase.table("projetos").insert({"cliente":nome, "cpf_cnpj":doc, "whatsapp_cliente":zap, "email_cliente":email_cli, "endereco_cliente":end_cli, "nome_projeto":proj, "descricao":desc, "prazo":prazo, "valor_total":val, "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"}).execute(); st.rerun()
+        if st.form_submit_button("💾 SALVAR ORÇAMENTO"):
+            dados_novo = {
+                "cliente": nome, "cpf_cnpj": doc, "whatsapp_cliente": zap,
+                "email_cliente": e_cli, "endereco_cliente": end_cli,
+                "nome_projeto": proj_n, "descricao": desc, "prazo": prazo,
+                "valor_total": val, "status_total": "Pendente",
+                "status_entrada": "Pendente", "status_final": "Pendente"
+            }
+            try:
+                supabase.table("projetos").insert(dados_novo).execute()
+                st.success("✅ Orçamento salvo com sucesso!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO DE PROJETOS")
@@ -132,7 +142,7 @@ elif menu == "GESTAO DE PROJETOS":
                 ca, cb = st.columns(2)
                 e_nome = ca.text_input("Cliente", p['cliente'])
                 e_doc = cb.text_input("CPF/CNPJ", p['cpf_cnpj'])
-                e_email = st.text_input("E-mail do Cliente", p.get('email_cliente', ''))
+                e_mail = st.text_input("E-mail do Cliente", p.get('email_cliente', ''))
                 e_end = st.text_input("Endereço do Cliente", p.get('endereco_cliente', ''))
                 e_proj = st.text_input("Nome do Projeto", p['nome_projeto'])
                 e_desc = st.text_area("Descrição", p.get('descricao', ''))
@@ -144,7 +154,7 @@ elif menu == "GESTAO DE PROJETOS":
                 v_e = f2.selectbox("ENTRADA (50%)", ["Pendente", "Recebido"], index=0 if p['status_entrada']=="Pendente" else 1)
                 v_f = f3.selectbox("FINAL (50%)", ["Pendente", "Recebido"], index=0 if p['status_final']=="Pendente" else 1)
                 if st.form_submit_button("💾 ATUALIZAR DADOS"):
-                    supabase.table("projetos").update({"cliente":e_nome, "cpf_cnpj":e_doc, "email_cliente":e_email, "endereco_cliente":e_end, "nome_projeto":e_proj, "descricao":e_desc, "valor_total":e_v, "prazo":e_p, "status_total":v_t, "status_entrada":v_e, "status_final":v_f}).eq("id", p['id']).execute(); st.rerun()
+                    supabase.table("projetos").update({"cliente":e_nome, "cpf_cnpj":e_doc, "email_cliente":e_mail, "endereco_cliente":e_end, "nome_projeto":e_proj, "descricao":e_desc, "valor_total":e_v, "prazo":e_p, "status_total":v_t, "status_entrada":v_e, "status_final":v_f}).eq("id", p['id']).execute(); st.rerun()
             
             st.markdown("<hr>", unsafe_allow_html=True)
             st.write("### 🖨️ Gerar Documentos")
