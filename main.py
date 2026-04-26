@@ -43,19 +43,28 @@ def carregar_dados():
 def criar_pdf_orcamento(p, c):
     pdf = FPDF()
     pdf.add_page()
-    # Cabeçalho da Empresa (PJ STUDIO)
-    pdf.set_fill_color(212, 175, 55) # Cor Ouro
-    pdf.rect(0, 0, 210, 35, 'F')
+    
+    # --- CABEÇALHO DA EMPRESA (DADOS COMPLETOS DAS CONFIGURAÇÕES) ---
+    pdf.set_fill_color(212, 175, 55) # Cor Ouro Profissional
+    pdf.rect(0, 0, 210, 45, 'F')
+    
     pdf.set_font("Arial", 'B', 16)
+    pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, f"{c.get('nome_empresa', 'PJ STUDIO')}", ln=True, align='C')
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | Zap: {c.get('whatsapp', '')}", ln=True, align='C')
+    
+    pdf.set_font("Arial", '', 9)
+    # Linha de Documento e Contato
+    pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | WhatsApp: {c.get('whatsapp', '')} | E-mail: {c.get('email', '')}", ln=True, align='C')
+    # Linha de Endereço Completo
+    pdf.multi_cell(0, 5, f"Endereço: {c.get('endereco', '')}", align='C')
+    
     pdf.ln(15)
     
-    # Título do Documento
+    # Título do Orçamento
     pdf.set_font("Arial", 'B', 14)
+    pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, f"ORÇAMENTO PROFISSIONAL: {p.get('nome_projeto')}", ln=True, align='L')
-    pdf.line(10, 50, 200, 50)
+    pdf.line(10, 60, 200, 60)
     
     # Dados do Cliente
     pdf.ln(5)
@@ -64,9 +73,10 @@ def criar_pdf_orcamento(p, c):
     pdf.set_font("Arial", '', 11)
     pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
     pdf.cell(0, 6, f"Documento: {p.get('cpf_cnpj', 'N/I')}", ln=True)
+    pdf.cell(0, 6, f"WhatsApp: {p.get('whatsapp_cliente', 'N/I')}", ln=True)
     pdf.cell(0, 6, f"Endereço: {p.get('endereco', 'N/I')}", ln=True)
     
-    # Detalhes
+    # Detalhes do Serviço
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(0, 8, "DETALHES DO SERVIÇO:", ln=True)
@@ -75,7 +85,7 @@ def criar_pdf_orcamento(p, c):
     pdf.multi_cell(0, 6, f"Exigências: {p.get('exigencias', 'N/I')}")
     pdf.cell(0, 6, f"Prazo de Entrega: {p.get('prazo', 'A combinar')}", ln=True)
     
-    # Financeiro
+    # Rodapé Financeiro
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, f"VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
@@ -84,7 +94,7 @@ def criar_pdf_orcamento(p, c):
     
     return pdf.output(dest='S').encode('latin-1')
 
-# --- 5. NAVEGAÇÃO ---
+# --- 5. NAVEGAÇÃO (BLINDADA) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center;'>⚜️ PJ STUDIO</h2>", unsafe_allow_html=True)
     st.write("---")
@@ -156,7 +166,6 @@ elif menu == "GESTAO DE PROJETOS":
                 }).eq("id", p['id']).execute()
                 st.rerun()
             
-            # --- GERAÇÃO DE PDF REAL ---
             try:
                 pdf_output = criar_pdf_orcamento(p, config)
                 b2.download_button(label="📄 BAIXAR PDF", data=pdf_output, file_name=f"Orcamento_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_{p['id']}")
