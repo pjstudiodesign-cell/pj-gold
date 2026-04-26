@@ -41,7 +41,7 @@ def carregar_dados():
     except Exception: return [], {}
 
 def configurar_cabecalho(pdf, c):
-    pdf.set_fill_color(212, 175, 55) # Cor Ouro
+    pdf.set_fill_color(212, 175, 55) 
     pdf.rect(0, 0, 210, 45, 'F')
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(0, 0, 0)
@@ -80,18 +80,23 @@ def gerar_pdf(tipo, p, c):
         pdf.set_font("Arial", 'B', 11)
         pdf.cell(0, 8, "DECLARAÇÃO DE RECEBIMENTO:", ln=True)
         pdf.set_font("Arial", '', 11)
-        valor_recibo = float(p.get('valor_total', 0))
-        # Se for entrada recebida mas final pendente, recibo é dos 50%
-        if p.get('status_entrada') == 'Recebido' and p.get('status_final') == 'Pendente':
-            valor_recibo = valor_recibo / 2
-            texto_recibo = f"Recebemos a importância de R$ {valor_recibo:,.2f} referente à ENTRADA (50%) do projeto {p.get('nome_projeto')}."
+        valor_total = float(p.get('valor_total', 0))
+        
+        # --- LÓGICA CORRIGIDA DO TEXTO DO RECIBO ---
+        if p.get('status_total') == 'Recebido':
+            texto_recibo = f"Recebemos a importância de R$ {valor_total:,.2f} referente à QUITAÇÃO INTEGRAL do projeto {p.get('nome_projeto')}."
+        elif p.get('status_entrada') == 'Recebido' and p.get('status_final') == 'Pendente':
+            texto_recibo = f"Recebemos a importância de R$ {(valor_total/2):,.2f} referente à ENTRADA (50%) do projeto {p.get('nome_projeto')}."
+        elif p.get('status_final') == 'Recebido':
+            texto_recibo = f"Recebemos a importância de R$ {(valor_total/2):,.2f} referente ao PAGAMENTO FINAL (50%) do projeto {p.get('nome_projeto')}."
         else:
-            texto_recibo = f"Recebemos a importância de R$ {valor_recibo:,.2f} referente à QUITAÇÃO INTEGRAL do projeto {p.get('nome_projeto')}."
+            texto_recibo = "Nenhum pagamento registrado para este recibo."
+        
         pdf.multi_cell(0, 8, texto_recibo)
 
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"VALOR: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
+    pdf.cell(0, 10, f"VALOR TOTAL DO PROJETO: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
     
     return pdf.output(dest='S').encode('latin-1')
 
@@ -105,9 +110,21 @@ with st.sidebar:
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
-    no_bolso = sum([float(p.get('valor_total',0))/2 for p in projetos if p.get('status_entrada') == 'Recebido']) + \
-               sum([float(p.get('valor_total',0))/2 for p in projetos if p.get('status_final') == 'Recebido'])
-    a_receber = sum([float(p.get('valor_total',0)) for p in projetos]) - no_bolso
+    
+    # --- LÓGICA CORRIGIDA DO FINANCEIRO ---
+    no_bolso = 0
+    total_geral = 0
+    for p in projetos:
+        v = float(p.get('valor_total', 0))
+        total_geral += v
+        if p.get('status_total') == 'Recebido':
+            no_bolso += v
+        else:
+            if p.get('status_entrada') == 'Recebido': no_bolso += (v/2)
+            if p.get('status_final') == 'Recebido': no_bolso += (v/2)
+            
+    a_receber = total_geral - no_bolso
+    
     c1, c2 = st.columns(2)
     c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {no_bolso:,.2f}")
     c2.metric("⏳ CONTAS A RECEBER", f"R$ {a_receber:,.2f}")
@@ -154,6 +171,7 @@ elif menu == "GESTAO DE PROJETOS":
             st.write("---")
             st.subheader("Controle de Pagamentos (50/50)")
             f1, f2, f3 = st.columns(3)
+            # Ao marcar Total como Recebido, a lógica do sistema agora prioriza isso no Recibo
             v_total = f1.selectbox("VALOR TOTAL", ["Pendente", "Recebido"], index=0 if p.get('status_total') == "Pendente" else 1, key=f"st_{p['id']}")
             v_ent = f2.selectbox("ENTRADA (50%)", ["Pendente", "Recebido"], index=0 if p.get('status_entrada') == "Pendente" else 1, key=f"se_{p['id']}")
             v_fin = f3.selectbox("FINAL (50%)", ["Pendente", "Recebido"], index=0 if p.get('status_final') == "Pendente" else 1, key=f"sf_{p['id']}")
@@ -167,13 +185,11 @@ elif menu == "GESTAO DE PROJETOS":
                 }).eq("id", p['id']).execute()
                 st.rerun()
             
-            # --- PDF ORÇAMENTO ---
             try:
                 pdf_orc = gerar_pdf("ORC", p, config)
                 b2.download_button(label="📄 ORÇAMENTO", data=pdf_orc, file_name=f"Orcamento_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_orc_{p['id']}")
             except: b2.error("Erro PDF")
 
-            # --- PDF RECIBO (ATIVADO) ---
             try:
                 pdf_rec = gerar_pdf("REC", p, config)
                 b3.download_button(label="🧾 RECIBO", data=pdf_rec, file_name=f"Recibo_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_rec_{p['id']}")
