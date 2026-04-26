@@ -1,7 +1,9 @@
 import streamlit as st
 from supabase import create_client, Client
+from fpdf import FPDF
+import io
 
-# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (IMUTÁVEL) ---
+# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
 # --- 2. CONEXÃO SUPABASE ---
@@ -30,13 +32,57 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. FUNÇÕES DE DADOS ---
+# --- 4. FUNÇÕES DE DADOS E GERAÇÃO DE DOCUMENTOS ---
 def carregar_dados():
     try:
         proj = supabase.table("projetos").select("*").execute()
         conf = supabase.table("configuracoes").select("*").eq("id", 1).execute()
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
+
+def criar_pdf_orcamento(p, c):
+    pdf = FPDF()
+    pdf.add_page()
+    # Cabeçalho da Empresa (PJ STUDIO)
+    pdf.set_fill_color(212, 175, 55) # Cor Ouro
+    pdf.rect(0, 0, 210, 35, 'F')
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, f"{c.get('nome_empresa', 'PJ STUDIO')}", ln=True, align='C')
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | Zap: {c.get('whatsapp', '')}", ln=True, align='C')
+    pdf.ln(15)
+    
+    # Título do Documento
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, f"ORÇAMENTO PROFISSIONAL: {p.get('nome_projeto')}", ln=True, align='L')
+    pdf.line(10, 50, 200, 50)
+    
+    # Dados do Cliente
+    pdf.ln(5)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 8, "DADOS DO CLIENTE:", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
+    pdf.cell(0, 6, f"Documento: {p.get('cpf_cnpj', 'N/I')}", ln=True)
+    pdf.cell(0, 6, f"Endereço: {p.get('endereco', 'N/I')}", ln=True)
+    
+    # Detalhes
+    pdf.ln(5)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 8, "DETALHES DO SERVIÇO:", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', 'N/I')}")
+    pdf.multi_cell(0, 6, f"Exigências: {p.get('exigencias', 'N/I')}")
+    pdf.cell(0, 6, f"Prazo de Entrega: {p.get('prazo', 'A combinar')}", ln=True)
+    
+    # Financeiro
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f"VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 8, "Condição: 50% de entrada e 50% na entrega final.", ln=True, align='R')
+    
+    return pdf.output(dest='S').encode('latin-1')
 
 # --- 5. NAVEGAÇÃO ---
 with st.sidebar:
@@ -48,26 +94,9 @@ with st.sidebar:
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
-    
-    no_bolso = 0.0
-    a_receber = 0.0
-    
-    for p in projetos:
-        valor_total = float(p.get('valor_total', 0) or 0)
-        metade = valor_total / 2
-        
-        # Lógica 50% Entrada (Somando no Bolso se recebido)
-        if p.get('status_entrada') == 'Recebido':
-            no_bolso += metade
-        else:
-            a_receber += metade
-            
-        # Lógica 50% Final
-        if p.get('status_final') == 'Recebido':
-            no_bolso += metade
-        else:
-            a_receber += metade
-
+    no_bolso = sum([float(p.get('valor_total',0))/2 for p in projetos if p.get('status_entrada') == 'Recebido']) + \
+               sum([float(p.get('valor_total',0))/2 for p in projetos if p.get('status_final') == 'Recebido'])
+    a_receber = sum([float(p.get('valor_total',0)) for p in projetos]) - no_bolso
     c1, c2 = st.columns(2)
     c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {no_bolso:,.2f}")
     c2.metric("⏳ CONTAS A RECEBER", f"R$ {a_receber:,.2f}")
@@ -96,8 +125,7 @@ elif menu == "NOVO ORÇAMENTO":
                     "cliente": c_nome, "cpf_cnpj": c_doc, "whatsapp_cliente": c_zap,
                     "email_cliente": c_mail, "endereco": c_end, "nome_projeto": p_nome,
                     "valor_total": p_valor, "prazo": p_prazo, "descricao": p_desc, 
-                    "exigencias": p_exig, "status_total": "Pendente", 
-                    "status_entrada": "Pendente", "status_final": "Pendente"
+                    "exigencias": p_exig, "status_total": "Pendente", "status_entrada": "Pendente", "status_final": "Pendente"
                 }).execute()
                 st.success("✅ Orçamento salvo!")
                 st.rerun()
@@ -128,11 +156,15 @@ elif menu == "GESTAO DE PROJETOS":
                 }).eq("id", p['id']).execute()
                 st.rerun()
             
-            if b2.button("📄 GERAR PDF", key=f"pdf_{p['id']}"):
-                st.info("Função PDF em integração...")
+            # --- GERAÇÃO DE PDF REAL ---
+            try:
+                pdf_output = criar_pdf_orcamento(p, config)
+                b2.download_button(label="📄 BAIXAR PDF", data=pdf_output, file_name=f"Orcamento_{p['cliente']}.pdf", mime="application/pdf", key=f"dl_{p['id']}")
+            except:
+                b2.error("Erro ao gerar PDF")
             
             if b3.button("🧾 RECIBO", key=f"rec_{p['id']}"):
-                st.info(f"Gerando recibo de 50%...")
+                st.info("Função Recibo em integração...")
                 
             if b4.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
                 supabase.table("projetos").delete().eq("id", p['id']).execute()
@@ -148,8 +180,5 @@ elif menu == "CONFIGURAÇOES":
         e_emp = st.text_input("E-mail Profissional", value=config.get('email', ''))
         end_emp = st.text_area("Endereço Completo", value=config.get('endereco', ''))
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
-            supabase.table("configuracoes").update({
-                "nome_empresa": n_emp, "cpf_cnpj": c_emp, 
-                "whatsapp": w_emp, "email": e_emp, "endereco": end_emp
-            }).eq("id", 1).execute()
+            supabase.table("configuracoes").update({"nome_empresa": n_emp, "cpf_cnpj": c_emp, "whatsapp": w_emp, "email": e_emp, "endereco": end_emp}).eq("id", 1).execute()
             st.rerun()
