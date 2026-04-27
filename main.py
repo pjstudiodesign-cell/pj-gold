@@ -17,7 +17,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO - LACRADO) ---
+# --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -128,9 +128,9 @@ if menu == "PAINEL":
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
     
-    # BLINDAGEM DE CACHE (A forma mais segura para evitar duplicidade)
-    if 'ultima_assinatura' not in st.session_state:
-        st.session_state.ultima_assinatura = ""
+    # LACRE DE TEMPO (Impede duplicidade em milissegundos)
+    if 'last_submit_time' not in st.session_state:
+        st.session_state.last_submit_time = 0
 
     with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
@@ -148,14 +148,12 @@ elif menu == "NOVO ORÇAMENTO":
         btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
         
         if btn_salvar:
-            # GERA UMA ASSINATURA ÚNICA DESTE FORMULÁRIO NO MOMENTO DO CLIQUE
-            assinatura_atual = f"{c_nome}-{p_nome}-{p_valor}"
-            
-            # SÓ SALVA SE A ASSINATURA FOR DIFERENTE DA ÚLTIMA SALVA NO CACHE
-            if assinatura_atual != st.session_state.ultima_assinatura:
+            current_time = time.time()
+            # BLINDAGEM: Se o último clique foi há menos de 2 segundos, ignora.
+            if current_time - st.session_state.last_submit_time > 2:
                 if c_nome and p_nome:
                     try:
-                        st.session_state.ultima_assinatura = assinatura_atual # LACRA A ASSINATURA
+                        st.session_state.last_submit_time = current_time # Grava o horário do lacre
                         supabase.table("projetos").insert({
                             "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
                             "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
@@ -163,16 +161,13 @@ elif menu == "NOVO ORÇAMENTO":
                             "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
                         }).execute()
                         st.success("Orçamento salvo com sucesso!")
-                        time.sleep(0.5)
                         st.rerun()
                     except Exception as e:
-                        st.session_state.ultima_assinatura = "" # Libera em caso de erro real
                         st.error(f"Erro ao salvar: {e}")
                 else:
                     st.warning("Por favor, preencha o nome do cliente e do projeto.")
             else:
-                # SE CAIR AQUI, É PORQUE É UMA DUPLICIDADE BLOQUEADA
-                st.info("Processando salvamento...")
+                st.info("Processando...")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
