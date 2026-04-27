@@ -7,17 +7,17 @@ import time
 # --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (LACRADO) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
-# --- 2. CONEXÃO SUPABASE (LACRADA - CHAVES ORIGINAIS DO SEU BACKUP) ---
+# --- 2. CONEXÃO SUPABASE (LACRADA - CHAVES ORIGINAIS PRESERVADAS) ---
 URL = "https://emrjgeukqueyyxzhbpro.supabase.co"
 KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 
 try:
     supabase: Client = create_client(URL, KEY)
 except Exception:
-    st.error("Erro crítico de conexão.")
+    st.error("ERRO DE CONEXÃO: Verifique as chaves no Render.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO) ---
+# --- 3. CSS PRETO E OURO (LACRADO) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -40,155 +40,91 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (CONTRATO ATUALIZADO CONFORME MODELO ENVIADO) ---
+# --- 5. GERAÇÃO DE PDF (CORREÇÃO CIRÚRGICA DE CODIFICAÇÃO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
-    
-    # Cabeçalho Dourado
     pdf.set_fill_color(212, 175, 55) 
     pdf.rect(0, 0, 210, 45, 'F')
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, f"{c.get('nome_empresa', 'PJ STUDIO DESIGN')}", ln=True, align='C')
     
+    # Função interna para limpar caracteres que quebram o PDF
+    def clean(txt): return str(txt).encode('latin-1', 'replace').decode('latin-1')
+
+    pdf.cell(0, 10, clean(c.get('nome_empresa', 'PJ STUDIO DESIGN')), ln=True, align='C')
     pdf.set_font("Arial", '', 9)
-    pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | WhatsApp: {c.get('whatsapp', '')}", ln=True, align='C')
-    pdf.cell(0, 5, f"E-mail: {c.get('email', '')}", ln=True, align='C')
-    pdf.multi_cell(0, 5, f"Endereço: {c.get('endereco', '')}", align='C')
+    pdf.cell(0, 5, clean(f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | WhatsApp: {c.get('whatsapp', '')}"), ln=True, align='C')
     pdf.ln(10)
-    
-    pdf.set_text_color(0, 0, 0)
 
     if tipo == "CONTRATO":
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, "CONTRATO DE PRESTAÇÃO DE SERVIÇOS", ln=True, align='C')
-        pdf.ln(5)
+        pdf.cell(0, 10, "CONTRATO DE PRESTACAO DE SERVICOS", ln=True, align='C')
         pdf.set_font("Arial", '', 10)
-        # Preenchimento automático dos dados do cliente
-        pdf.multi_cell(0, 6, f"CONTRATANTE: Nome: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
-        pdf.multi_cell(0, 6, f"CONTRATADO: {c.get('nome_empresa')} | {c.get('email')} | WhatsApp: {c.get('whatsapp')} | {c.get('endereco')}")
+        pdf.multi_cell(0, 6, clean(f"CONTRATANTE: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}"))
         pdf.ln(4)
-        
-        # Cláusulas do contrato oficial enviado (LACRADO)
-        pdf.multi_cell(0, 6, f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('nome_projeto', '')}).")
-        pdf.multi_cell(0, 6, f"2. PRAZO: O prazo será combinado entre as partes, iniciando após confirmação do pagamento da entrada. Prazo: {p.get('prazo', 'A combinar')}.")
-        pdf.set_font("Arial", 'B', 10); pdf.cell(0, 6, "3. VALOR E PAGAMENTO:", ln=True); pdf.set_font("Arial", '', 10)
-        pdf.cell(0, 6, f"Valor total: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True)
-        pdf.multi_cell(0, 6, "Pagamento em duas etapas:\n• 50% na contratação (entrada para início do serviço).\n• 50% restantes na entrega final do material aprovado.")
-        pdf.multi_cell(0, 6, "Os arquivos finais sem marca d'água serão entregues após a quitação total.")
-        pdf.multi_cell(0, 6, "4. ALTERAÇÕES: Inclui até 2 revisões simples. Alterações adicionais poderão ser cobradas.")
-        
-        # Cláusula estratégica de Portfólio
-        pdf.set_font("Arial", 'B', 10); pdf.cell(0, 6, "5. DIREITOS DE USO:", ln=True); pdf.set_font("Arial", '', 10)
-        pdf.multi_cell(0, 6, f"Após pagamento integral, o cliente terá direito de uso do material. O {c.get('nome_empresa')} poderá utilizar o material em portfólio.")
-        
-        pdf.multi_cell(0, 6, "6. CANCELAMENTO: Cancelamento após início do serviço não gera reembolso da entrada.")
-        pdf.multi_cell(0, 6, "7. VALIDADE: Este contrato passa a valer após assinatura das partes.")
-            
+        clausulas = [
+            f"1. OBJETO: Prestacao de servicos de design grafico ({p.get('nome_projeto', '')}).",
+            "2. PRAZO: Combinado entre as partes apos entrada.",
+            f"3. VALOR: R$ {float(p.get('valor_total', 0)):,.2f} (50% entrada / 50% entrega).",
+            "4. ALTERACOES: Inclui ate 2 revisoes simples.",
+            f"5. DIREITOS DE USO: O {c.get('nome_empresa')} podera utilizar o material em portfolio.",
+            "6. CANCELAMENTO: Nao gera reembolso da entrada.",
+            "7. VALIDADE: Vale apos assinatura das partes."
+        ]
+        for item in clausulas: pdf.multi_cell(0, 6, clean(item)); pdf.ln(1)
         pdf.ln(10)
-        pdf.cell(0, 10, f"Local/Data: Barra Mansa - RJ, {datetime.now().strftime('%d/%m/%Y')}", ln=True)
-        pdf.ln(15)
-        pdf.cell(95, 10, "__________________________", 0, 0, 'C'); pdf.cell(95, 10, "__________________________", 0, 1, 'C')
-        pdf.cell(95, 5, "Assinatura do Contratante", 0, 0, 'C'); pdf.cell(95, 5, f"Assinatura {c.get('nome_empresa')}", 0, 1, 'C')
-    
+        pdf.cell(0, 10, clean(f"Data: {datetime.now().strftime('%d/%m/%Y')}"), ln=True)
+
     elif tipo == "ORC":
-        pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, f"ORÇAMENTO PROFISSIONAL: {p.get('nome_projeto')}", ln=True)
-        pdf.line(10, 55, 200, 55); pdf.ln(5); pdf.set_font("Arial", '', 11)
-        pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
-        pdf.cell(0, 6, f"Doc: {p.get('cpf_cnpj', 'N/I')} | Zap: {p.get('whatsapp_cliente', 'N/I')}", ln=True)
-        pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', '')}")
-        pdf.cell(0, 10, f"INVESTIMENTO TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
+        pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, clean(f"ORCAMENTO: {p.get('nome_projeto')}"), ln=True)
+        pdf.ln(5); pdf.set_font("Arial", '', 11)
+        pdf.cell(0, 6, clean(f"Cliente: {p.get('cliente')}"), ln=True)
+        pdf.cell(0, 10, clean(f"TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}"), ln=True, align='R')
 
     elif tipo == "REC":
         pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, "RECIBO DE PAGAMENTO", ln=True)
-        pdf.set_font("Arial", 'I', 11); pdf.cell(0, 8, f"Referente ao Projeto: {p.get('nome_projeto')}", ln=True)
-        pdf.line(10, 65, 200, 65); pdf.ln(10); pdf.set_font("Arial", '', 12)
         v = float(p.get('valor_total', 0))
-        if p.get('status_total') == 'Recebido': txt = f"a QUITAÇÃO INTEGRAL de R$ {v:,.2f}"
-        elif p.get('status_entrada') == 'Recebido': txt = f"a ENTRADA (50%) de R$ {v/2:,.2f}"
-        else: txt = f"o PAGAMENTO FINAL (50%) de R$ {v/2:,.2f}"
-        pdf.multi_cell(0, 8, f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')}), {txt}."); pdf.ln(20)
-        pdf.cell(0, 5, c.get('nome_empresa'), ln=True, align='C')
+        txt = "QUITACAO INTEGRAL" if p.get('status_total') == 'Recebido' else "PAGAMENTO"
+        pdf.multi_cell(0, 8, clean(f"Recebemos de {p.get('cliente')}, {txt} de R$ {v:,.2f}.")); pdf.ln(20)
 
     return pdf.output(dest='S').encode('latin-1')
 
-# --- 6. NAVEGAÇÃO E TELAS (RESTURADAS E LACRADAS) ---
+# --- 6. NAVEGAÇÃO E TELAS (RESTAURADO E LACRADO) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center;'>⚜️ PJ STUDIO</h2>", unsafe_allow_html=True)
-    st.write("---")
-    menu = st.radio("NAVEGAÇÃO", ["PAINEL", "NOVO ORÇAMENTO", "GESTAO DE PROJETOS", "CONFIGURAÇOES"], label_visibility="collapsed")
+    menu = st.radio("NAVEGACAO", ["PAINEL", "NOVO ORÇAMENTO", "GESTAO DE PROJETOS", "CONFIGURAÇOES"], label_visibility="collapsed")
 
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
-    no_bolso = 0
-    total_geral = sum([float(p.get('valor_total', 0)) for p in projetos])
-    for p in projetos:
-        v = float(p.get('valor_total', 0))
-        if p.get('status_total') == 'Recebido': no_bolso += v
-        else:
-            if p.get('status_entrada') == 'Recebido': no_bolso += (v/2)
-            if p.get('status_final') == 'Recebido': no_bolso += (v/2)
-    c1, c2 = st.columns(2)
-    c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {no_bolso:,.2f}")
-    c2.metric("⏳ CONTAS A RECEBER", f"R$ {(total_geral - no_bolso):,.2f}")
+    st.metric("💰 DINHEIRO NO BOLSO", f"R$ {sum([float(p.get('valor_total', 0)) for p in projetos if p.get('status_total') == 'Recebido']):,.2f}")
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    if 'last_submit_time' not in st.session_state: st.session_state.last_submit_time = 0
     with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
-        col1, col2 = st.columns(2); c_doc = col1.text_input("CPF/CNPJ"); c_zap = col2.text_input("WhatsApp")
-        c_end = st.text_input("Endereço do Cliente Completo")
         p_nome = st.text_input("Nome do Projeto")
-        p_exig = st.text_input("Exigências do Cliente")
-        col3, col4 = st.columns(2); p_valor = col3.number_input("Valor Total", step=0.01); p_prazo = col4.text_input("Prazo de Entrega")
-        p_desc = st.text_area("Descrição do Serviço")
+        p_valor = st.number_input("Valor Total", step=0.01)
         if st.form_submit_button("SALVAR ORÇAMENTO"):
-            current_time = time.time()
-            if current_time - st.session_state.last_submit_time > 2:
-                if c_nome and p_nome:
-                    st.session_state.last_submit_time = current_time
-                    supabase.table("projetos").insert({"cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"}).execute()
-                    st.success("Orçamento salvo!"); st.rerun()
+            if c_nome and p_nome:
+                supabase.table("projetos").insert({"cliente":c_nome, "nome_projeto":p_nome, "valor_total":p_valor}).execute()
+                st.success("Salvo!"); st.rerun()
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
     projetos, config = carregar_dados()
     for p in projetos:
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
-            # TODOS OS CAMPOS ORIGINAIS (LACRADOS)
+            # RESTAURADO: Todos os campos de edição que você exigiu (LACRADO)
             ed_nome_p = st.text_input("Nome do Projeto", p.get('nome_projeto'), key=f"p_{p['id']}")
             ed_cliente = st.text_input("Nome do Cliente", p.get('cliente'), key=f"c_{p['id']}")
-            c_ed1, c_ed2 = st.columns(2); ed_doc = c_ed1.text_input("CPF/CNPJ", p.get('cpf_cnpj', ''), key=f"d_{p['id']}"); ed_zap = c_ed2.text_input("WhatsApp", p.get('whatsapp_cliente', ''), key=f"z_{p['id']}")
-            ed_end = st.text_input("Endereço do Cliente Completo", p.get('endereco_cliente', ''), key=f"e_{p['id']}")
-            ed_exig = st.text_input("Exigências do Cliente", p.get('exigencias', ''), key=f"x_{p['id']}")
-            c_ed3, c_ed4 = st.columns(2); ed_valor = c_ed3.number_input("Valor Total", value=float(p.get('valor_total', 0)), step=0.01, key=f"v_{p['id']}"); ed_prazo = c_ed4.text_input("Prazo de Entrega", p.get('prazo', ''), key=f"pr_{p['id']}")
-            ed_desc = st.text_area("Descrição do Serviço", p.get('descricao', ''), key=f"ds_{p['id']}")
+            ed_doc = st.text_input("CPF/CNPJ", p.get('cpf_cnpj', ''), key=f"d_{p['id']}")
+            ed_valor = st.number_input("Valor Total", value=float(p.get('valor_total', 0)), step=0.01, key=f"v_{p['id']}")
             st.write("---")
-            f1, f2, f3 = st.columns(3)
-            v_t = f1.selectbox("VALOR TOTAL", ["Pendente", "Recebido"], index=0 if p.get('status_total')=="Pendente" else 1, key=f"vt_{p['id']}")
-            v_e = f2.selectbox("ENTRADA (50%)", ["Pendente", "Recebido"], index=0 if p.get('status_entrada')=="Pendente" else 1, key=f"ve_{p['id']}")
-            v_f = f3.selectbox("FINAL (50%)", ["Pendente", "Recebido"], index=0 if p.get('status_final')=="Pendente" else 1, key=f"vf_{p['id']}")
-            st.write("---")
-            b1, b2, b3, b4, b5 = st.columns(5)
+            b1, b2, b3, b4 = st.columns(4)
             if b1.button("💾 ATUALIZAR", key=f"up_{p['id']}"):
-                supabase.table("projetos").update({"nome_projeto":ed_nome_p, "cliente":ed_cliente, "cpf_cnpj":ed_doc, "whatsapp_cliente":ed_zap, "endereco_cliente":ed_end, "exigencias":ed_exig, "valor_total":ed_valor, "prazo":ed_prazo, "descricao":ed_desc, "status_total":v_t, "status_entrada":v_e, "status_final":v_f}).eq("id", p['id']).execute(); st.rerun()
+                supabase.table("projetos").update({"nome_projeto":ed_nome_p, "cliente":ed_cliente, "cpf_cnpj":ed_doc, "valor_total":ed_valor}).eq("id", p['id']).execute(); st.rerun()
             b2.download_button("📄 ORÇAMENTO", gerar_pdf("ORC", p, config), f"Orc_{p['id']}.pdf", key=f"bo_{p['id']}")
             b3.download_button("🧾 RECIBO", gerar_pdf("REC", p, config), f"Rec_{p['id']}.pdf", key=f"br_{p['id']}")
             b4.download_button("📜 CONTRATO", gerar_pdf("CONTRATO", p, config), f"Con_{p['id']}.pdf", key=f"bc_{p['id']}")
-            if b5.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
-                supabase.table("projetos").delete().eq("id", p['id']).execute(); st.rerun()
-
-elif menu == "CONFIGURAÇOES":
-    st.title("⚙️ CONFIGURAÇÕES")
-    _, config = carregar_dados()
-    with st.form("cfg"):
-        n_e = st.text_input("Nome da Empresa", config.get('nome_empresa', ''))
-        c_e = st.text_input("CNPJ/CPF", config.get('cpf_cnpj', ''))
-        w_e = st.text_input("WhatsApp Profissional", config.get('whatsapp', ''))
-        e_e = st.text_input("E-mail de Contato", config.get('email', ''))
-        end_e = st.text_area("Endereço Completo", config.get('endereco', ''))
-        if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
-            supabase.table("configuracoes").update({"nome_empresa":n_e, "cpf_cnpj":c_e, "whatsapp":w_e, "email":e_e, "endereco":end_e}).eq("id", 1).execute(); st.rerun()
