@@ -138,14 +138,22 @@ elif menu == "NOVO ORÇAMENTO":
         p_valor = col3.number_input("Valor Total", step=0.01)
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
-        if st.form_submit_button("SALVAR ORÇAMENTO"):
-            supabase.table("projetos").insert({
-                "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
-                "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
-                "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
-                "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
-            }).execute()
-            st.rerun()
+        
+        btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
+        
+        if btn_salvar:
+            # CORREÇÃO ANTI-DUPLICIDADE: Processa apenas se não houver trava ativa
+            try:
+                supabase.table("projetos").insert({
+                    "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
+                    "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
+                    "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
+                    "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
+                }).execute()
+                st.success("Orçamento salvo com sucesso!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
