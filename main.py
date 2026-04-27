@@ -3,7 +3,7 @@ from supabase import create_client, Client
 from fpdf import FPDF
 from datetime import datetime
 
-# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL ---
+# --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (LACRADO) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
 # --- 2. CONEXÃO SUPABASE (LACRADA) ---
@@ -16,7 +16,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (RESTABELECIDO E BLINDADO) ---
+# --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -131,7 +131,7 @@ elif menu == "NOVO ORÇAMENTO":
         col1, col2 = st.columns(2)
         c_doc = col1.text_input("CPF/CNPJ")
         c_zap = col2.text_input("WhatsApp")
-        c_end = st.text_input("Endereço do Cliente Completo") # CAMPO INSERIDO CONFORME ORDEM
+        c_end = st.text_input("Endereço do Cliente Completo")
         p_nome = st.text_input("Nome do Projeto")
         p_exig = st.text_input("Exigências do Cliente")
         col3, col4 = st.columns(2)
@@ -140,18 +140,10 @@ elif menu == "NOVO ORÇAMENTO":
         p_desc = st.text_area("Descrição do Serviço")
         if st.form_submit_button("SALVAR ORÇAMENTO"):
             supabase.table("projetos").insert({
-                "cliente":c_nome, 
-                "cpf_cnpj":c_doc, 
-                "whatsapp_cliente":c_zap, 
-                "endereco_cliente":c_end, # DADO INTEGRADO À INSERÇÃO
-                "nome_projeto":p_nome, 
-                "exigencias":p_exig, 
-                "valor_total":p_valor, 
-                "prazo":p_prazo, 
-                "descricao":p_desc, 
-                "status_total":"Pendente", 
-                "status_entrada":"Pendente", 
-                "status_final":"Pendente"
+                "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
+                "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
+                "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
+                "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
             }).execute()
             st.rerun()
 
