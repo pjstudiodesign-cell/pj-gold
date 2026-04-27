@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 from fpdf import FPDF
 from datetime import datetime
+import time
 
 # --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (LACRADO) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
@@ -16,7 +17,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (RESTABELECIDO E BLINDADO) ---
+# --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO - LACRADO) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -39,7 +40,7 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (SISTEMA DE DOCUMENTOS INTEGRADO - LACRADO) ---
+# --- 5. GERAÇÃO DE PDF (SISTEMA DE DOCUMENTOS - LACRADO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
@@ -127,16 +128,16 @@ if menu == "PAINEL":
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
     
-    # Inicializa a trava de submissão na sessão (Blindagem interna)
-    if 'submitted' not in st.session_state:
-        st.session_state.submitted = False
+    # BLINDAGEM DE CACHE (A forma mais segura para evitar duplicidade)
+    if 'ultima_assinatura' not in st.session_state:
+        st.session_state.ultima_assinatura = ""
 
     with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
         col1, col2 = st.columns(2)
         c_doc = col1.text_input("CPF/CNPJ")
         c_zap = col2.text_input("WhatsApp")
-        c_end = st.text_input("Endereço do Cliente Completo")
+        c_end = st.text_input("Endereço do Cliente Completo") # CAMPO PRESERVADO
         p_nome = st.text_input("Nome do Projeto")
         p_exig = st.text_input("Exigências do Cliente")
         col3, col4 = st.columns(2)
@@ -146,25 +147,32 @@ elif menu == "NOVO ORÇAMENTO":
         
         btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
         
-        # CORREÇÃO CIRÚRGICA: Verifica se o botão foi clicado E se já não foi enviado nesta rodada
-        if btn_salvar and not st.session_state.submitted:
-            if c_nome and p_nome:
-                st.session_state.submitted = True # Ativa a blindagem
-                try:
-                    supabase.table("projetos").insert({
-                        "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
-                        "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
-                        "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
-                        "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
-                    }).execute()
-                    st.success("Orçamento salvo com sucesso!")
-                    st.session_state.submitted = False # Libera para o próximo orçamento
-                    st.rerun()
-                except Exception as e:
-                    st.session_state.submitted = False
-                    st.error(f"Erro ao salvar: {e}")
+        if btn_salvar:
+            # GERA UMA ASSINATURA ÚNICA DESTE FORMULÁRIO NO MOMENTO DO CLIQUE
+            assinatura_atual = f"{c_nome}-{p_nome}-{p_valor}"
+            
+            # SÓ SALVA SE A ASSINATURA FOR DIFERENTE DA ÚLTIMA SALVA NO CACHE
+            if assinatura_atual != st.session_state.ultima_assinatura:
+                if c_nome and p_nome:
+                    try:
+                        st.session_state.ultima_assinatura = assinatura_atual # LACRA A ASSINATURA
+                        supabase.table("projetos").insert({
+                            "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
+                            "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
+                            "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
+                            "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
+                        }).execute()
+                        st.success("Orçamento salvo com sucesso!")
+                        time.sleep(0.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.session_state.ultima_assinatura = "" # Libera em caso de erro real
+                        st.error(f"Erro ao salvar: {e}")
+                else:
+                    st.warning("Por favor, preencha o nome do cliente e do projeto.")
             else:
-                st.warning("Por favor, preencha o nome do cliente e do projeto.")
+                # SE CAIR AQUI, É PORQUE É UMA DUPLICIDADE BLOQUEADA
+                st.info("Processando salvamento...")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
