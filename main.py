@@ -122,7 +122,6 @@ if menu == "PAINEL":
     
     c1, c2 = st.columns(2)
     c1.metric("💰 DINHEIRO NO BOLSO", f"R$ {no_bolso:,.2f}")
-    # CAMPO RESTAURADO: CONTAS A RECEBER
     c2.metric("⏳ CONTAS A RECEBER", f"R$ {(total_geral - no_bolso):,.2f}")
 
 elif menu == "NOVO ORÇAMENTO":
@@ -132,14 +131,28 @@ elif menu == "NOVO ORÇAMENTO":
         col1, col2 = st.columns(2)
         c_doc = col1.text_input("CPF/CNPJ")
         c_zap = col2.text_input("WhatsApp")
+        c_end = st.text_input("Endereço do Cliente Completo") # CAMPO INSERIDO CONFORME ORDEM
         p_nome = st.text_input("Nome do Projeto")
-        p_exig = st.text_input("Exigências do Cliente") # CAMPO MANTIDO
+        p_exig = st.text_input("Exigências do Cliente")
         col3, col4 = st.columns(2)
         p_valor = col3.number_input("Valor Total", step=0.01)
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
         if st.form_submit_button("SALVAR ORÇAMENTO"):
-            supabase.table("projetos").insert({"cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, "nome_projeto":p_nome, "exigencias":p_exig, "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"}).execute()
+            supabase.table("projetos").insert({
+                "cliente":c_nome, 
+                "cpf_cnpj":c_doc, 
+                "whatsapp_cliente":c_zap, 
+                "endereco_cliente":c_end, # DADO INTEGRADO À INSERÇÃO
+                "nome_projeto":p_nome, 
+                "exigencias":p_exig, 
+                "valor_total":p_valor, 
+                "prazo":p_prazo, 
+                "descricao":p_desc, 
+                "status_total":"Pendente", 
+                "status_entrada":"Pendente", 
+                "status_final":"Pendente"
+            }).execute()
             st.rerun()
 
 elif menu == "GESTAO DE PROJETOS":
@@ -151,7 +164,6 @@ elif menu == "GESTAO DE PROJETOS":
             n_p = col_ed1.text_input("Editar Projeto", p.get('nome_projeto'), key=f"np_{p['id']}")
             n_c = col_ed2.text_input("Editar Cliente", p.get('cliente'), key=f"nc_{p['id']}")
             
-            # RESTAURAÇÃO DOS 3 CAMPOS DE PAGAMENTO (BLINDADOS)
             st.write("---")
             st.write("**Controle de Pagamentos (50/50)**")
             f1, f2, f3 = st.columns(3)
@@ -177,6 +189,6 @@ elif menu == "CONFIGURAÇOES":
         c_e = st.text_input("CNPJ/CPF", config.get('cpf_cnpj', ''))
         w_e = st.text_input("WhatsApp Profissional", config.get('whatsapp', ''))
         e_e = st.text_input("E-mail de Contato", config.get('email', ''))
-        end_e = st.text_area("Endereço Completo", config.get('endereco', '')) # CAMPO MANTIDO
+        end_e = st.text_area("Endereço Completo", config.get('endereco', ''))
         if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
             supabase.table("configuracoes").update({"nome_empresa":n_e, "cpf_cnpj":c_e, "whatsapp":w_e, "email":e_e, "endereco":end_e}).eq("id", 1).execute(); st.rerun()
