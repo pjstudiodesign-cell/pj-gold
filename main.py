@@ -14,7 +14,7 @@ KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 try:
     supabase: Client = create_client(URL, KEY)
 except Exception:
-    st.error("ERRO DE CONEXÃO: O sistema não detectou as chaves. Verifique o Render.")
+    st.error("Erro crítico de conexão.")
     st.stop()
 
 # --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO) ---
@@ -40,20 +40,24 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (DETALHISTA E CIRÚRGICA) ---
+# --- 5. GERAÇÃO DE PDF (CONTRATO ATUALIZADO CONFORME MODELO ENVIADO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Cabeçalho Dourado
     pdf.set_fill_color(212, 175, 55) 
     pdf.rect(0, 0, 210, 45, 'F')
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, f"{c.get('nome_empresa', 'PJ STUDIO DESIGN')}", ln=True, align='C')
+    
     pdf.set_font("Arial", '', 9)
     pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | WhatsApp: {c.get('whatsapp', '')}", ln=True, align='C')
     pdf.cell(0, 5, f"E-mail: {c.get('email', '')}", ln=True, align='C')
     pdf.multi_cell(0, 5, f"Endereço: {c.get('endereco', '')}", align='C')
     pdf.ln(10)
+    
     pdf.set_text_color(0, 0, 0)
 
     if tipo == "CONTRATO":
@@ -61,23 +65,32 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, "CONTRATO DE PRESTAÇÃO DE SERVIÇOS", ln=True, align='C')
         pdf.ln(5)
         pdf.set_font("Arial", '', 10)
-        pdf.multi_cell(0, 6, f"CONTRATANTE: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
+        # Preenchimento automático dos dados do cliente
+        pdf.multi_cell(0, 6, f"CONTRATANTE: Nome: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
+        pdf.multi_cell(0, 6, f"CONTRATADO: {c.get('nome_empresa')} | {c.get('email')} | WhatsApp: {c.get('whatsapp')} | {c.get('endereco')}")
         pdf.ln(4)
-        clausulas = [
-            f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('nome_projeto', '')}).",
-            f"2. PRAZO: O prazo será combinado entre as partes, iniciando após confirmação do pagamento da entrada.",
-            f"3. VALOR E PAGAMENTO: Valor total: R$ {float(p.get('valor_total', 0)):,.2f}. Pagamento em duas etapas (50% na contratação / 50% na entrega final).",
-            "4. ALTERAÇÕES: Inclui até 2 revisões simples. Alterações adicionais poderão ser cobradas.",
-            f"5. DIREITOS DE USO: Após pagamento integral, o cliente terá direito de uso do material. O {c.get('nome_empresa')} poderá utilizar o material em portfólio.",
-            "6. CANCELAMENTO: Cancelamento após início do serviço não gera reembolso da entrada.",
-            "7. VALIDADE: Este contrato passa a valer após assinatura das partes."
-        ]
-        for item in clausulas: pdf.multi_cell(0, 6, item); pdf.ln(1)
+        
+        # Cláusulas do contrato oficial enviado (LACRADO)
+        pdf.multi_cell(0, 6, f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('nome_projeto', '')}).")
+        pdf.multi_cell(0, 6, f"2. PRAZO: O prazo será combinado entre as partes, iniciando após confirmação do pagamento da entrada. Prazo: {p.get('prazo', 'A combinar')}.")
+        pdf.set_font("Arial", 'B', 10); pdf.cell(0, 6, "3. VALOR E PAGAMENTO:", ln=True); pdf.set_font("Arial", '', 10)
+        pdf.cell(0, 6, f"Valor total: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True)
+        pdf.multi_cell(0, 6, "Pagamento em duas etapas:\n• 50% na contratação (entrada para início do serviço).\n• 50% restantes na entrega final do material aprovado.")
+        pdf.multi_cell(0, 6, "Os arquivos finais sem marca d'água serão entregues após a quitação total.")
+        pdf.multi_cell(0, 6, "4. ALTERAÇÕES: Inclui até 2 revisões simples. Alterações adicionais poderão ser cobradas.")
+        
+        # Cláusula estratégica de Portfólio
+        pdf.set_font("Arial", 'B', 10); pdf.cell(0, 6, "5. DIREITOS DE USO:", ln=True); pdf.set_font("Arial", '', 10)
+        pdf.multi_cell(0, 6, f"Após pagamento integral, o cliente terá direito de uso do material. O {c.get('nome_empresa')} poderá utilizar o material em portfólio.")
+        
+        pdf.multi_cell(0, 6, "6. CANCELAMENTO: Cancelamento após início do serviço não gera reembolso da entrada.")
+        pdf.multi_cell(0, 6, "7. VALIDADE: Este contrato passa a valer após assinatura das partes.")
+            
         pdf.ln(10)
         pdf.cell(0, 10, f"Local/Data: Barra Mansa - RJ, {datetime.now().strftime('%d/%m/%Y')}", ln=True)
         pdf.ln(15)
         pdf.cell(95, 10, "__________________________", 0, 0, 'C'); pdf.cell(95, 10, "__________________________", 0, 1, 'C')
-        pdf.cell(95, 5, "Contratante", 0, 0, 'C'); pdf.cell(95, 5, c.get('nome_empresa'), 0, 1, 'C')
+        pdf.cell(95, 5, "Assinatura do Contratante", 0, 0, 'C'); pdf.cell(95, 5, f"Assinatura {c.get('nome_empresa')}", 0, 1, 'C')
     
     elif tipo == "ORC":
         pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, f"ORÇAMENTO PROFISSIONAL: {p.get('nome_projeto')}", ln=True)
@@ -85,7 +98,7 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
         pdf.cell(0, 6, f"Doc: {p.get('cpf_cnpj', 'N/I')} | Zap: {p.get('whatsapp_cliente', 'N/I')}", ln=True)
         pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', '')}")
-        pdf.cell(0, 10, f"VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
+        pdf.cell(0, 10, f"INVESTIMENTO TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
 
     elif tipo == "REC":
         pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, "RECIBO DE PAGAMENTO", ln=True)
@@ -126,15 +139,11 @@ elif menu == "NOVO ORÇAMENTO":
     if 'last_submit_time' not in st.session_state: st.session_state.last_submit_time = 0
     with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
-        col1, col2 = st.columns(2)
-        c_doc = col1.text_input("CPF/CNPJ")
-        c_zap = col2.text_input("WhatsApp")
+        col1, col2 = st.columns(2); c_doc = col1.text_input("CPF/CNPJ"); c_zap = col2.text_input("WhatsApp")
         c_end = st.text_input("Endereço do Cliente Completo")
         p_nome = st.text_input("Nome do Projeto")
         p_exig = st.text_input("Exigências do Cliente")
-        col3, col4 = st.columns(2)
-        p_valor = col3.number_input("Valor Total", step=0.01)
-        p_prazo = col4.text_input("Prazo de Entrega")
+        col3, col4 = st.columns(2); p_valor = col3.number_input("Valor Total", step=0.01); p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
         if st.form_submit_button("SALVAR ORÇAMENTO"):
             current_time = time.time()
@@ -149,17 +158,13 @@ elif menu == "GESTAO DE PROJETOS":
     projetos, config = carregar_dados()
     for p in projetos:
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
-            # RESTAURADO: Todos os seus campos de edição originais
+            # TODOS OS CAMPOS ORIGINAIS (LACRADOS)
             ed_nome_p = st.text_input("Nome do Projeto", p.get('nome_projeto'), key=f"p_{p['id']}")
             ed_cliente = st.text_input("Nome do Cliente", p.get('cliente'), key=f"c_{p['id']}")
-            c_ed1, c_ed2 = st.columns(2)
-            ed_doc = c_ed1.text_input("CPF/CNPJ", p.get('cpf_cnpj', ''), key=f"d_{p['id']}")
-            ed_zap = c_ed2.text_input("WhatsApp", p.get('whatsapp_cliente', ''), key=f"z_{p['id']}")
+            c_ed1, c_ed2 = st.columns(2); ed_doc = c_ed1.text_input("CPF/CNPJ", p.get('cpf_cnpj', ''), key=f"d_{p['id']}"); ed_zap = c_ed2.text_input("WhatsApp", p.get('whatsapp_cliente', ''), key=f"z_{p['id']}")
             ed_end = st.text_input("Endereço do Cliente Completo", p.get('endereco_cliente', ''), key=f"e_{p['id']}")
             ed_exig = st.text_input("Exigências do Cliente", p.get('exigencias', ''), key=f"x_{p['id']}")
-            c_ed3, c_ed4 = st.columns(2)
-            ed_valor = c_ed3.number_input("Valor Total", value=float(p.get('valor_total', 0)), step=0.01, key=f"v_{p['id']}")
-            ed_prazo = c_ed4.text_input("Prazo de Entrega", p.get('prazo', ''), key=f"pr_{p['id']}")
+            c_ed3, c_ed4 = st.columns(2); ed_valor = c_ed3.number_input("Valor Total", value=float(p.get('valor_total', 0)), step=0.01, key=f"v_{p['id']}"); ed_prazo = c_ed4.text_input("Prazo de Entrega", p.get('prazo', ''), key=f"pr_{p['id']}")
             ed_desc = st.text_area("Descrição do Serviço", p.get('descricao', ''), key=f"ds_{p['id']}")
             st.write("---")
             f1, f2, f3 = st.columns(3)
