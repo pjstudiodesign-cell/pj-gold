@@ -4,10 +4,10 @@ from fpdf import FPDF
 from datetime import datetime
 
 # ==========================================
-# 1. CONEXÃO BLINDADA (CREDENCIAIS DO PAULO)
+# 1. CONEXÃO (DADOS ORIGINAIS DO PAULO)
 # ==========================================
-URL = "https://emrjgeukqueyyxzhbpro.supabase.co"
-KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcmpnZXVrcXVleXl4emhicHJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODEzODAsImV4cCI6MjA5MjA1NzM4MH0.zEk_qYIvErts5aO9fJ6EL6ZU--Pm7woqugCfW3i0yyY"
+URL = "https://emrjgeukqueyyxzhbpro.supabase.co" 
+KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcmpnZXVrcXVleXl4emhicHJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODEzODAsImV4cCI6MjA5MjA1NzM4MH0.zEk_qYIvErts5aO9fJ6EL6ZU--Pm7woqugCfW3i0yyY" 
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -16,7 +16,7 @@ def get_supabase() -> Client:
 supabase = get_supabase()
 
 # ==========================================
-# 2. ESTILO VISUAL PREMIUM (INTOCÁVEL)
+# 2. ESTILO VISUAL PREMIUM (RESTAURADO)
 # ==========================================
 st.set_page_config(page_title="PJ GOLD PRO", layout="wide", page_icon="💰")
 
@@ -40,13 +40,13 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. FUNÇÃO DE PDF (LAYOUT PJ STUDIO DESIGN)
+# 3. FUNÇÃO DE PDF (LAYOUT ORIGINAL DO ESTÚDIO)
 # ==========================================
-def gerar_pdf(p, dados_empresa, tipo="Orcamento"):
+def gerar_pdf(dados_projeto, dados_empresa, tipo="Orcamento"):
     pdf = FPDF()
     pdf.add_page()
     
-    # Cabeçalho Dourado Premium
+    # Faixa Ouro Superior Original
     pdf.set_fill_color(212, 175, 55)
     pdf.rect(0, 0, 210, 40, 'F')
     
@@ -55,24 +55,23 @@ def gerar_pdf(p, dados_empresa, tipo="Orcamento"):
     pdf.cell(0, 10, f"{dados_empresa.get('nome_empresa', 'PJ Studio Design')}", 0, 1, 'C')
     
     pdf.set_font("Arial", '', 8)
-    info = f"CNPJ/CPF: {dados_empresa.get('cpf_cnpj', '')} | WhatsApp: {dados_empresa.get('whatsapp', '')} | E-mail: {dados_empresa.get('email', '')}"
-    pdf.cell(0, 5, info, 0, 1, 'C')
+    info_topo = f"CNPJ/CPF: {dados_empresa.get('cpf_cnpj', '')} | WhatsApp: {dados_empresa.get('whatsapp', '')} | E-mail: {dados_empresa.get('email', '')}"
+    pdf.cell(0, 5, info_topo, 0, 1, 'C')
     pdf.cell(0, 5, f"Endereço: {dados_empresa.get('endereco', '')}", 0, 1, 'C')
     
     pdf.ln(20)
     pdf.set_font("Arial", 'B', 12)
-    titulo = f"{tipo.upper()}: {p['nome_projeto']}".upper()
-    pdf.cell(0, 10, titulo, "B", 1, 'L')
+    pdf.cell(0, 10, f"{tipo.upper()}: {dados_projeto['nome_projeto']}".upper(), "B", 1, 'L')
     
     pdf.ln(5)
     pdf.set_font("Arial", '', 11)
-    pdf.cell(0, 8, f"Cliente: {p['cliente']}", 0, 1)
-    pdf.cell(0, 8, f"Prazo: {p['prazo']}", 0, 1)
-    pdf.multi_cell(0, 8, f"Descrição: {p['descricao']}")
+    pdf.cell(0, 8, f"Cliente: {dados_projeto['cliente']}", 0, 1)
+    pdf.cell(0, 8, f"Prazo: {dados_projeto['prazo']}", 0, 1)
+    pdf.multi_cell(0, 8, f"Descrição: {dados_projeto['descricao']}")
     
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"VALOR TOTAL: R$ {p['valor_total']:.2f}", 0, 1, 'R')
+    pdf.cell(0, 10, f"VALOR TOTAL: R$ {dados_projeto['valor_total']:.2f}", 0, 1, 'R')
     
     return pdf.output(dest='S').encode('latin-1')
 
@@ -80,19 +79,31 @@ def gerar_pdf(p, dados_empresa, tipo="Orcamento"):
 # 4. CARREGAMENTO DE CONFIGURAÇÕES
 # ==========================================
 try:
-    conf = supabase.table("configuracoes").select("*").limit(1).execute()
-    dados_empresa = conf.data[0] if conf.data else {"nome_empresa": "PJ Studio Design", "cpf_cnpj": "", "whatsapp": "", "email": "", "endereco": ""}
+    config_res = supabase.table("configuracoes").select("*").limit(1).execute()
+    dados_empresa = config_res.data[0] if config_res.data else {"nome_empresa": "PJ Studio Design", "cpf_cnpj": "", "whatsapp": "", "email": "", "endereco": ""}
 except:
     dados_empresa = {"nome_empresa": "PJ Studio Design", "cpf_cnpj": "", "whatsapp": "", "email": "", "endereco": ""}
 
 # ==========================================
-# 5. NAVEGAÇÃO E REGRAS DE NEGÓCIO
+# 5. MENU PRINCIPAL (RESTABELECIDO)
 # ==========================================
 menu = st.sidebar.selectbox("MENU PRINCIPAL", ["Painel de Controle", "Novo Orçamento", "Gestão de Projetos", "Configurações"])
 
-# --- ABA: NOVO ORÇAMENTO (CORRIGIDA E BLINDADA) ---
-if menu == "Novo Orçamento":
+# --- ABA: PAINEL DE CONTROLE ---
+if menu == "Painel de Controle":
+    st.title("🚀 Dashboard PJ GOLD PRO")
+    res_soma = supabase.table("projetos").select("valor_total").execute()
+    total_bruto = sum([item['valor_total'] for item in res_soma.data]) if res_soma.data else 0.0
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Faturamento Total", f"R$ {total_bruto:,.2f}")
+    c2.metric("Projetos Ativos", len(res_soma.data) if res_soma.data else 0)
+    c3.metric("Estúdio", dados_empresa['nome_empresa'])
+
+# --- ABA: NOVO ORÇAMENTO ---
+elif menu == "Novo Orçamento":
     st.header("📝 Criar Novo Orçamento")
+    
     with st.form("form_orcamento", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -105,80 +116,82 @@ if menu == "Novo Orçamento":
             nome_projeto = st.text_input("Nome do Projeto")
             
         descricao = st.text_area("Descrição do Serviço")
+        
         col3, col4 = st.columns(2)
         with col3:
             prazo = st.text_input("Prazo de Entrega (ex: 7 dias úteis)")
         with col4:
             valor_total = st.number_input("Valor Total (R$)", min_value=0.0, format="%.2f")
             
-        if st.form_submit_button("GERAR E SALVAR ORÇAMENTO"):
-            if cliente and nome_projeto:
+        btn_salvar = st.form_submit_button("GERAR E SALVAR ORÇAMENTO")
+
+        if btn_salvar:
+            if not cliente or not nome_projeto:
+                st.error("Por favor, preencha o nome do cliente e do projeto.")
+            else:
                 try:
-                    res = supabase.table("projetos").insert({
+                    dados_insert = {
                         "cliente": cliente, "cpf_cnpj": cpf_cnpj, "whatsapp_cliente": whatsapp,
                         "email_cliente": email, "endereco_cliente": endereco, "nome_projeto": nome_projeto,
                         "descricao": descricao, "prazo": prazo, "valor_total": valor_total,
                         "status_total": "Pendente", "status_entrada": "Pendente", "status_final": "Pendente"
-                    }).execute()
+                    }
+                    res = supabase.table("projetos").insert(dados_insert).execute()
                     
                     if res.data:
                         st.success("✅ Orçamento salvo com sucesso!")
-                        st.cache_data.clear() # Limpa memória para o próximo
-                        st.rerun()            # TRAVA ANTI-DUPLICAÇÃO SOLICITADA
+                        st.cache_data.clear() # PREVENÇÃO DE DUPLICAÇÃO
+                        st.rerun()            
                 except Exception as e:
-                    st.error(f"Erro no banco: {e}")
-            else:
-                st.warning("Preencha o nome do cliente e do projeto.")
+                    st.error(f"Erro ao salvar: {e}")
 
 # --- ABA: GESTÃO DE PROJETOS ---
 elif menu == "Gestão de Projetos":
     st.header("📋 Gestão de Projetos")
-    projs = supabase.table("projetos").select("*").order("created_at", desc=True).execute()
+    projetos_res = supabase.table("projetos").select("*").order("created_at", desc=True).execute()
     
-    if projs.data:
-        for p in projs.data:
+    if not projetos_res.data:
+        st.info("Nenhum projeto encontrado.")
+    else:
+        for p in projetos_res.data:
             with st.expander(f"📌 {p['cliente']} - {p['nome_projeto']} (R$ {p['valor_total']:.2f})"):
-                c_e1, c_e2 = st.columns(2)
-                with c_e1:
+                col_ed1, col_ed2 = st.columns(2)
+                with col_ed1:
                     st.write(f"**WhatsApp:** {p['whatsapp_cliente']}")
-                    st.write(f"**CPF/CNPJ:** {p['cpf_cnpj']}")
-                    n_ent = st.selectbox("Status Entrada", ["Pendente", "Pago"], index=0 if p['status_entrada'] == "Pendente" else 1, key=f"e_{p['id']}")
-                    n_fin = st.selectbox("Status Final", ["Pendente", "Pago"], index=0 if p['status_final'] == "Pendente" else 1, key=f"f_{p['id']}")
-                with c_e2:
-                    pdf_data = gerar_pdf(p, dados_empresa, "Orcamento")
-                    st.download_button("📥 Baixar PDF", pdf_data, f"Orcamento_{p['id']}.pdf", key=f"d_{p['id']}")
-                    if st.button("Atualizar Projeto", key=f"u_{p['id']}"):
+                    novo_status_ent = st.selectbox("Status Entrada", ["Pendente", "Pago"], 
+                                                  index=0 if p['status_entrada'] == "Pendente" else 1, key=f"ent_{p['id']}")
+                    novo_status_fin = st.selectbox("Status Final", ["Pendente", "Pago"], 
+                                                  index=0 if p['status_final'] == "Pendente" else 1, key=f"fin_{p['id']}")
+                
+                with col_ed2:
+                    pdf_orc = gerar_pdf(p, dados_empresa, "Orcamento")
+                    st.download_button("📥 Baixar PDF", pdf_orc, f"Orcamento_{p['id']}.pdf", key=f"btn_{p['id']}")
+                    
+                    if st.button("Atualizar Projeto", key=f"up_{p['id']}"):
                         supabase.table("projetos").update({
-                            "status_entrada": n_ent, "status_final": n_fin,
-                            "status_total": "Concluído" if n_fin == "Pago" else "Em Andamento"
+                            "status_entrada": novo_status_ent,
+                            "status_final": novo_status_fin,
+                            "status_total": "Concluído" if novo_status_fin == "Pago" else "Em Andamento"
                         }).eq("id", p['id']).execute()
                         st.success("Atualizado!")
                         st.cache_data.clear()
                         st.rerun()
-    else:
-        st.info("Nenhum registro encontrado.")
-
-# --- ABA: PAINEL DE CONTROLE ---
-elif menu == "Painel de Controle":
-    st.title("🚀 Dashboard PJ GOLD PRO")
-    res = supabase.table("projetos").select("valor_total").execute()
-    total = sum([x['valor_total'] for x in res.data]) if res.data else 0.0
-    st.metric("Faturamento Acumulado", f"R$ {total:,.2f}")
 
 # --- ABA: CONFIGURAÇÕES ---
 elif menu == "Configurações":
     st.header("⚙️ Configurações do Estúdio")
-    with st.form("f_conf"):
-        n = st.text_input("Nome da Empresa", value=dados_empresa['nome_empresa'])
-        d = st.text_input("CPF/CNPJ", value=dados_empresa['cpf_cnpj'])
-        w = st.text_input("WhatsApp", value=dados_empresa['whatsapp'])
-        e = st.text_input("E-mail", value=dados_empresa['email'])
-        a = st.text_input("Endereço", value=dados_empresa['endereco'])
-        if st.form_submit_button("SALVAR DADOS"):
-            d_save = {"nome_empresa": n, "cpf_cnpj": d, "whatsapp": w, "email": e, "endereco": a}
-            if "id" in dados_empresa:
-                supabase.table("configuracoes").update(d_save).eq("id", dados_empresa['id']).execute()
+    with st.form("form_config"):
+        n_empresa = st.text_input("Nome da Empresa", value=dados_empresa['nome_empresa'])
+        d_empresa = st.text_input("CPF/CNPJ", value=dados_empresa['cpf_cnpj'])
+        z_empresa = st.text_input("WhatsApp", value=dados_empresa['whatsapp'])
+        m_empresa = st.text_input("E-mail", value=dados_empresa['email'])
+        e_empresa = st.text_input("Endereço Completo", value=dados_empresa['endereco'])
+        
+        if st.form_submit_button("SALVAR CONFIGURAÇÕES"):
+            conf_data = {"nome_empresa": n_empresa, "cpf_cnpj": d_empresa, "whatsapp": z_empresa, "email": m_empresa, "endereco": e_empresa}
+            if config_res.data:
+                supabase.table("configuracoes").update(conf_data).eq("id", dados_empresa['id']).execute()
             else:
-                supabase.table("configuracoes").insert(d_save).execute()
-            st.success("Dados salvos!")
+                supabase.table("configuracoes").insert(conf_data).execute()
+            st.success("Configurações Salvas!")
             st.rerun()
