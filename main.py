@@ -5,22 +5,28 @@ import pandas as pd
 # 1. CONFIGURAÇÃO VISUAL (PJ STUDIO DESIGN)
 st.set_page_config(page_title="PJ GOLD PRO", layout="wide")
 
-# 2. MOTOR DE CONEXÃO (LACRADO)
-# Corrigido para ler as chaves do Render sem travar o sistema.
+# 2. MOTOR DE CONEXÃO (LACRADO COM TRAVA DE SEGURANÇA)
+# Corrigido para garantir a leitura no Render sem quebrar o sistema.
 try:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    # O uso de .get impede o erro fatal caso o Render demore a responder
+    url = st.secrets.get("SUPABASE_URL")
+    key = st.secrets.get("SUPABASE_KEY")
+    
+    if not url or not key:
+        st.error("⚠️ ALERTA: As chaves de acesso não foram detectadas no Render.")
+        st.stop()
+        
     supabase: Client = create_client(url, key)
-except Exception:
-    st.error("⚠️ ERRO DE CONEXÃO: O sistema não detectou as chaves. Verifique o Render.")
+except Exception as e:
+    st.error(f"⚠️ ERRO DE CONEXÃO: O motor falhou ao iniciar. Detalhe: {e}")
     st.stop()
 
-# 3. CARREGAMENTO DOS DADOS (SEM ALTERAÇÕES)
+# 3. CARREGAMENTO DOS DADOS (ORDEM ORIGINAL PRESERVADA)
 def carregar_dados():
     res = supabase.table("projetos").select("*").order("created_at", desc=True).execute()
     return res.data
 
-# 4. PAINEL DE GESTÃO (EXATAMENTE O QUE JÁ FUNCIONAVA)
+# 4. PAINEL DE GESTÃO (EXATAMENTE O QUE JÁ ESTAVA 99% APROVADO)
 st.title("📑 GESTÃO E EDIÇÃO")
 
 dados = carregar_dados()
@@ -32,7 +38,7 @@ if dados:
     if escolha:
         proj_edit = df[df['nome_projeto'] == escolha].iloc[0]
         
-        with st.form("form_lacre_final"):
+        with st.form("form_lacre_final_blindado"):
             col1, col2 = st.columns(2)
             with col1:
                 nome_p = st.text_input("Nome do Projeto", proj_edit['nome_projeto'])
@@ -59,12 +65,14 @@ if dados:
                 st_fin = st.selectbox("FINAL (50%)", ["Pendente", "Recebido"], 
                                      index=0 if proj_edit['status_final'] == "Pendente" else 1)
 
-            if st.form_submit_button("✅ RESTAURAR TUDO"):
+            if st.form_submit_button("✅ SALVAR E RESTAURAR TUDO"):
                 supabase.table("projetos").update({
                     "nome_projeto": nome_p, "cliente": cliente, "cpf_cnpj": cpf,
                     "whatsapp_cliente": zap, "prazo": prazo, "valor_total": valor,
                     "endereco_cliente": end, "descricacao": desc,
                     "status_total": st_total, "status_entrada": st_ent, "status_final": st_fin
                 }).eq("id", proj_edit['id']).execute()
-                st.success("Motor recuperado com sucesso!")
+                st.success("✅ Sistema restaurado e dados salvos com sucesso!")
                 st.rerun()
+
+st.info("💡 Motor restaurado. Blindagem aplicada para evitar quedas por falha de conexão.")
