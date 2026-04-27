@@ -107,7 +107,7 @@ with st.sidebar:
     st.write("---")
     menu = st.radio("NAVEGAÇÃO", ["PAINEL", "NOVO ORÇAMENTO", "GESTAO DE PROJETOS", "CONFIGURAÇOES"], label_visibility="collapsed")
 
-# --- 7. TELAS RESTAURADAS E BLINDADAS ---
+# --- 7. TELAS ---
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
@@ -126,12 +126,7 @@ if menu == "PAINEL":
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    
-    # INICIALIZAÇÃO DA TRAVA DE SEGURANÇA (SESSÃO)
-    if 'processando' not in st.session_state:
-        st.session_state.processando = False
-
-    with st.form("orc_form", clear_on_submit=True):
+    with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
         col1, col2 = st.columns(2)
         c_doc = col1.text_input("CPF/CNPJ")
@@ -144,23 +139,24 @@ elif menu == "NOVO ORÇAMENTO":
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
         
+        # BLINDAGEM: O botão é a única forma de disparar o código abaixo
         btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
         
-        if btn_salvar and not st.session_state.processando:
-            st.session_state.processando = True  # ATIVA A BLINDAGEM CONTRA DUPLICIDADE
-            try:
-                supabase.table("projetos").insert({
-                    "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
-                    "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
-                    "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
-                    "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
-                }).execute()
-                st.success("Orçamento salvo com sucesso!")
-                st.session_state.processando = False # LIBERA PARA O PRÓXIMO
-                st.rerun()
-            except Exception as e:
-                st.session_state.processando = False
-                st.error(f"Erro ao salvar: {e}")
+        if btn_salvar:
+            if c_nome and p_nome: # Validação mínima para evitar envios vazios pelo Enter
+                try:
+                    supabase.table("projetos").insert({
+                        "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
+                        "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
+                        "valor_total":p_valor, "prazo":p_prazo, "descricao":p_desc, 
+                        "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
+                    }).execute()
+                    st.success("Orçamento salvo com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
+            else:
+                st.warning("Por favor, preencha o nome do cliente e do projeto.")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
