@@ -40,7 +40,7 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (SISTEMA DE DOCUMENTOS - LACRADO) ---
+# --- 5. GERAÇÃO DE PDF (LACRADO - SINCRONIZADO COM BANCO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
@@ -64,7 +64,7 @@ def gerar_pdf(tipo, p, c):
         pdf.multi_cell(0, 6, f"CONTRATANTE: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
         pdf.ln(4)
         clausulas = [
-            f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('descricao')}).",
+            f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('descricao', '')}).",
             f"2. PRAZO: {p.get('prazo', 'A combinar')}, após pagamento da entrada.",
             f"3. VALOR: R$ {float(p.get('valor_total', 0)):,.2f} (50% entrada / 50% entrega).",
             "4. ALTERAÇÕES: Inclui até 2 revisões simples.",
@@ -86,7 +86,7 @@ def gerar_pdf(tipo, p, c):
         pdf.set_font("Arial", '', 11)
         pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
         pdf.cell(0, 6, f"Exigências: {p.get('exigencias', 'Nenhuma')}", ln=True)
-        pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao')}")
+        pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', '')}")
         pdf.cell(0, 10, f"VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
 
     elif tipo == "REC":
@@ -127,33 +127,28 @@ if menu == "PAINEL":
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    
-    # LACRE DE TEMPO (Impede duplicidade em milissegundos)
-    if 'last_submit_time' not in st.session_state:
-        st.session_state.last_submit_time = 0
+    if 'last_submit_time' not in st.session_state: st.session_state.last_submit_time = 0
 
     with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
         col1, col2 = st.columns(2)
         c_doc = col1.text_input("CPF/CNPJ")
         c_zap = col2.text_input("WhatsApp")
-        c_end = st.text_input("Endereço do Cliente Completo") # CAMPO PRESERVADO
+        c_end = st.text_input("Endereço do Cliente Completo")
         p_nome = st.text_input("Nome do Projeto")
         p_exig = st.text_input("Exigências do Cliente")
         col3, col4 = st.columns(2)
         p_valor = col3.number_input("Valor Total", step=0.01)
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
-        
         btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
         
         if btn_salvar:
             current_time = time.time()
-            # BLINDAGEM: Se o último clique foi há menos de 2 segundos, ignora.
             if current_time - st.session_state.last_submit_time > 2:
                 if c_nome and p_nome:
                     try:
-                        st.session_state.last_submit_time = current_time # Grava o horário do lacre
+                        st.session_state.last_submit_time = current_time
                         supabase.table("projetos").insert({
                             "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
                             "endereco_cliente":c_end, "nome_projeto":p_nome, "exigencias":p_exig, 
@@ -162,21 +157,32 @@ elif menu == "NOVO ORÇAMENTO":
                         }).execute()
                         st.success("Orçamento salvo com sucesso!")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
-                else:
-                    st.warning("Por favor, preencha o nome do cliente e do projeto.")
-            else:
-                st.info("Processando...")
+                    except Exception as e: st.error(f"Erro ao salvar: {e}")
+                else: st.warning("Preencha cliente e projeto.")
+            else: st.info("Processando...")
 
 elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
     projetos, config = carregar_dados()
     for p in projetos:
+        # Lacre: Puxando exatamente os nomes das colunas vistos nos prints
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
-            col_ed1, col_ed2 = st.columns(2)
-            n_p = col_ed1.text_input("Editar Projeto", p.get('nome_projeto'), key=f"np_{p['id']}")
-            n_c = col_ed2.text_input("Editar Cliente", p.get('cliente'), key=f"nc_{p['id']}")
+            # --- CAMPOS DE EDIÇÃO SINCRONIZADOS (ORDEM DO ORÇAMENTO) ---
+            ed_nome_p = st.text_input("Nome do Projeto", p.get('nome_projeto'), key=f"p_{p['id']}")
+            ed_cliente = st.text_input("Nome do Cliente", p.get('cliente'), key=f"c_{p['id']}")
+            
+            c_ed1, c_ed2 = st.columns(2)
+            ed_doc = c_ed1.text_input("CPF/CNPJ", p.get('cpf_cnpj', ''), key=f"d_{p['id']}")
+            ed_zap = c_ed2.text_input("WhatsApp", p.get('whatsapp_cliente', ''), key=f"z_{p['id']}")
+            
+            ed_end = st.text_input("Endereço do Cliente Completo", p.get('endereco_cliente', ''), key=f"e_{p['id']}")
+            ed_exig = st.text_input("Exigências do Cliente", p.get('exigencias', ''), key=f"x_{p['id']}")
+            
+            c_ed3, c_ed4 = st.columns(2)
+            ed_valor = c_ed3.number_input("Valor Total", value=float(p.get('valor_total', 0)), step=0.01, key=f"v_{p['id']}")
+            ed_prazo = c_ed4.text_input("Prazo de Entrega", p.get('prazo', ''), key=f"pr_{p['id']}")
+            
+            ed_desc = st.text_area("Descrição do Serviço", p.get('descricao', ''), key=f"ds_{p['id']}")
             
             st.write("---")
             st.write("**Controle de Pagamentos (50/50)**")
@@ -188,7 +194,13 @@ elif menu == "GESTAO DE PROJETOS":
             st.write("---")
             b1, b2, b3, b4, b5 = st.columns(5)
             if b1.button("💾 ATUALIZAR", key=f"up_{p['id']}"):
-                supabase.table("projetos").update({"nome_projeto":n_p, "cliente":n_c, "status_total":v_t, "status_entrada":v_e, "status_final":v_f}).eq("id", p['id']).execute(); st.rerun()
+                supabase.table("projetos").update({
+                    "nome_projeto":ed_nome_p, "cliente":ed_cliente, "cpf_cnpj":ed_doc, 
+                    "whatsapp_cliente":ed_zap, "endereco_cliente":ed_end, "exigencias":ed_exig, 
+                    "valor_total":ed_valor, "prazo":ed_prazo, "descricao":ed_desc,
+                    "status_total":v_t, "status_entrada":v_e, "status_final":v_f
+                }).eq("id", p['id']).execute(); st.rerun()
+            
             b2.download_button("📄 ORÇAMENTO", gerar_pdf("ORC", p, config), f"Orc_{p['id']}.pdf", key=f"bo_{p['id']}")
             b3.download_button("🧾 RECIBO", gerar_pdf("REC", p, config), f"Rec_{p['id']}.pdf", key=f"br_{p['id']}")
             b4.download_button("📜 CONTRATO", gerar_pdf("CONTRATO", p, config), f"Con_{p['id']}.pdf", key=f"bc_{p['id']}")
