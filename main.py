@@ -7,7 +7,7 @@ import time
 # --- 1. CONFIGURAÇÃO E BLINDAGEM VISUAL (LACRADO) ---
 st.set_page_config(page_title="PJ STUDIO GOLD PRO", layout="wide")
 
-# --- 2. CONEXÃO SUPABASE (LACRADA) ---
+# --- 2. CONEXÃO SUPABASE (LACRADA - SEUS DADOS ORIGINAIS) ---
 URL = "https://emrjgeukqueyyxzhbpro.supabase.co"
 KEY = "sb_publishable_qisG5bDBD-AxpBKW9LmBnA_p-_M671n"
 
@@ -40,20 +40,26 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (LACRADO - SINCRONIZADO COM BANCO) ---
+# --- 5. GERAÇÃO DE PDF (AJUSTE DETALHISTA - COMPLETO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Cabeçalho Ouro
     pdf.set_fill_color(212, 175, 55) 
     pdf.rect(0, 0, 210, 45, 'F')
+    
+    # Dados da Empresa (Configurações)
     pdf.set_font("Arial", 'B', 16)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, f"{c.get('nome_empresa', 'PJ STUDIO DESIGN')}", ln=True, align='C')
+    
     pdf.set_font("Arial", '', 9)
     pdf.cell(0, 5, f"CNPJ/CPF: {c.get('cpf_cnpj', '')} | WhatsApp: {c.get('whatsapp', '')}", ln=True, align='C')
     pdf.cell(0, 5, f"E-mail: {c.get('email', '')}", ln=True, align='C')
     pdf.multi_cell(0, 5, f"Endereço: {c.get('endereco', '')}", align='C')
     pdf.ln(10)
+    
     pdf.set_text_color(0, 0, 0)
 
     if tipo == "CONTRATO":
@@ -61,54 +67,82 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, "CONTRATO DE PRESTAÇÃO DE SERVIÇOS", ln=True, align='C')
         pdf.ln(5)
         pdf.set_font("Arial", '', 10)
+        # Ajuste: Garantindo todos os dados do cliente no contrato
         pdf.multi_cell(0, 6, f"CONTRATANTE: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
+        pdf.multi_cell(0, 6, f"ENDEREÇO: {p.get('endereco_cliente', 'N/I')}")
         pdf.ln(4)
+        
         clausulas = [
-            f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('descricao', '')}).",
-            f"2. PRAZO: {p.get('prazo', 'A combinar')}, após pagamento da entrada.",
-            f"3. VALOR: R$ {float(p.get('valor_total', 0)):,.2f} (50% entrada / 50% entrega).",
-            "4. ALTERAÇÕES: Inclui até 2 revisões simples.",
-            "5. DIREITOS: Uso liberado após quitação total.",
-            "6. CANCELAMENTO: Início do serviço não gera reembolso da entrada.",
-            "7. VALIDADE: Ativo após assinatura das partes."
+            f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('nome_projeto', '')}).",
+            f"2. DESCRIÇÃO: {p.get('descricao', 'Conforme acordado')}.",
+            f"3. PRAZO: {p.get('prazo', 'A combinar')}, contados após o pagamento da entrada.",
+            f"4. VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}.",
+            f"5. PAGAMENTO: Efetuado em regime 50/50 (Entrada/Entrega).",
+            f"6. EXIGÊNCIAS ESPECÍFICAS: {p.get('exigencias', 'Nenhuma')}.",
+            "7. ALTERAÇÕES: O projeto inclui até 2 (duas) revisões sem custo adicional.",
+            "8. DIREITOS: A propriedade intelectual é transferida ao cliente após quitação total.",
+            "9. CANCELAMENTO: Em caso de desistência após início, o valor da entrada não será devolvido."
         ]
-        for item in clausulas: pdf.multi_cell(0, 6, item); pdf.ln(1)
+        for item in clausulas: 
+            pdf.multi_cell(0, 6, item)
+            pdf.ln(1)
+            
         pdf.ln(10)
         pdf.cell(0, 10, f"Local/Data: Barra Mansa - RJ, {datetime.now().strftime('%d/%m/%Y')}", ln=True)
         pdf.ln(15)
-        pdf.cell(95, 10, "__________________________", 0, 0, 'C'); pdf.cell(95, 10, "__________________________", 0, 1, 'C')
-        pdf.cell(95, 5, "Contratante", 0, 0, 'C'); pdf.cell(95, 5, c.get('nome_empresa'), 0, 1, 'C')
+        pdf.cell(95, 10, "__________________________", 0, 0, 'C')
+        pdf.cell(95, 10, "__________________________", 0, 1, 'C')
+        pdf.cell(95, 5, "Contratante", 0, 0, 'C')
+        pdf.cell(95, 5, c.get('nome_empresa'), 0, 1, 'C')
     
     elif tipo == "ORC":
         pdf.set_font("Arial", 'B', 14)
         pdf.cell(0, 10, f"ORÇAMENTO PROFISSIONAL: {p.get('nome_projeto')}", ln=True)
-        pdf.line(10, 55, 200, 55); pdf.ln(5)
+        pdf.line(10, 55, 200, 55)
+        pdf.ln(5)
         pdf.set_font("Arial", '', 11)
+        # Ajuste: Adicionado CPF e WhatsApp no Orçamento
         pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
-        pdf.cell(0, 6, f"Exigências: {p.get('exigencias', 'Nenhuma')}", ln=True)
-        pdf.multi_cell(0, 6, f"Descrição: {p.get('descricao', '')}")
-        pdf.cell(0, 10, f"VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
+        pdf.cell(0, 6, f"Doc: {p.get('cpf_cnpj', 'N/I')} | Zap: {p.get('whatsapp_cliente', 'N/I')}", ln=True)
+        pdf.cell(0, 6, f"Prazo: {p.get('prazo', 'A combinar')}", ln=True)
+        pdf.ln(2)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 6, "Detalhamento:", ln=True)
+        pdf.set_font("Arial", '', 11)
+        pdf.multi_cell(0, 6, f"Exigências: {p.get('exigencias', 'Nenhuma')}")
+        pdf.multi_cell(0, 6, f"Descrição do Serviço: {p.get('descricao', '')}")
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 13)
+        pdf.cell(0, 10, f"INVESTIMENTO TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
 
     elif tipo == "REC":
         pdf.set_font("Arial", 'B', 14)
         pdf.cell(0, 10, f"RECIBO DE PAGAMENTO: {p.get('nome_projeto')}", ln=True)
         pdf.ln(5)
         valor = float(p.get('valor_total', 0))
-        if p.get('status_total') == 'Recebido': txt = f"QUITAÇÃO INTEGRAL de R$ {valor:,.2f}"
-        elif p.get('status_entrada') == 'Recebido': txt = f"ENTRADA (50%) de R$ {valor/2:,.2f}"
-        else: txt = f"PAGAMENTO FINAL (50%) de R$ {valor/2:,.2f}"
+        
+        # Ajuste: Lógica de texto do recibo baseada no status
+        if p.get('status_total') == 'Recebido':
+            txt = f"a QUITAÇÃO INTEGRAL (100%) no valor de R$ {valor:,.2f}"
+        elif p.get('status_entrada') == 'Recebido' and p.get('status_final') == 'Pendente':
+            txt = f"o pagamento da ENTRADA (50%) no valor de R$ {valor/2:,.2f}"
+        else:
+            txt = f"o pagamento FINAL (50%) no valor de R$ {valor/2:,.2f}"
+            
         pdf.set_font("Arial", '', 11)
-        pdf.multi_cell(0, 8, f"Recebemos de {p.get('cliente')} o valor referente à {txt}.")
+        pdf.multi_cell(0, 8, f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')}), {txt}, referente aos serviços de design descritos no projeto.")
+        pdf.ln(10)
+        pdf.cell(0, 10, f"Data: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='R')
 
     return pdf.output(dest='S').encode('latin-1')
 
-# --- 6. NAVEGAÇÃO ---
+# --- 6. NAVEGAÇÃO (LACRADO) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center;'>⚜️ PJ STUDIO</h2>", unsafe_allow_html=True)
     st.write("---")
     menu = st.radio("NAVEGAÇÃO", ["PAINEL", "NOVO ORÇAMENTO", "GESTAO DE PROJETOS", "CONFIGURAÇOES"], label_visibility="collapsed")
 
-# --- 7. TELAS ---
+# --- 7. TELAS (LACRADAS) ---
 if menu == "PAINEL":
     st.title("⚜️ PAINEL DE CONTROLE")
     projetos, _ = carregar_dados()
@@ -165,9 +199,7 @@ elif menu == "GESTAO DE PROJETOS":
     st.title("📋 GESTÃO E EDIÇÃO")
     projetos, config = carregar_dados()
     for p in projetos:
-        # Lacre: Puxando exatamente os nomes das colunas vistos nos prints
         with st.expander(f"📌 {p.get('nome_projeto')} | {p.get('cliente')}"):
-            # --- CAMPOS DE EDIÇÃO SINCRONIZADOS (ORDEM DO ORÇAMENTO) ---
             ed_nome_p = st.text_input("Nome do Projeto", p.get('nome_projeto'), key=f"p_{p['id']}")
             ed_cliente = st.text_input("Nome do Cliente", p.get('cliente'), key=f"c_{p['id']}")
             
