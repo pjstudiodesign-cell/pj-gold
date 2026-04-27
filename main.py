@@ -40,7 +40,7 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (AJUSTE DETALHISTA - COMPLETO) ---
+# --- 5. GERAÇÃO DE PDF (REFINAMENTO MINUCIOSO DOS DOCUMENTOS) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
@@ -67,7 +67,6 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, "CONTRATO DE PRESTAÇÃO DE SERVIÇOS", ln=True, align='C')
         pdf.ln(5)
         pdf.set_font("Arial", '', 10)
-        # Ajuste: Garantindo todos os dados do cliente no contrato
         pdf.multi_cell(0, 6, f"CONTRATANTE: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
         pdf.multi_cell(0, 6, f"ENDEREÇO: {p.get('endereco_cliente', 'N/I')}")
         pdf.ln(4)
@@ -101,7 +100,6 @@ def gerar_pdf(tipo, p, c):
         pdf.line(10, 55, 200, 55)
         pdf.ln(5)
         pdf.set_font("Arial", '', 11)
-        # Ajuste: Adicionado CPF e WhatsApp no Orçamento
         pdf.cell(0, 6, f"Cliente: {p.get('cliente')}", ln=True)
         pdf.cell(0, 6, f"Doc: {p.get('cpf_cnpj', 'N/I')} | Zap: {p.get('whatsapp_cliente', 'N/I')}", ln=True)
         pdf.cell(0, 6, f"Prazo: {p.get('prazo', 'A combinar')}", ln=True)
@@ -116,23 +114,48 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, f"INVESTIMENTO TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
 
     elif tipo == "REC":
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, f"RECIBO DE PAGAMENTO: {p.get('nome_projeto')}", ln=True)
-        pdf.ln(5)
+        # Ajuste Elite: Título e Nome do Projeto abaixo dele
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "RECIBO DE PAGAMENTO", ln=True, align='L')
+        pdf.set_font("Arial", 'I', 11)
+        pdf.cell(0, 8, f"Referente ao Projeto: {p.get('nome_projeto')}", ln=True, align='L')
+        pdf.line(10, 65, 200, 65)
+        pdf.ln(10)
+        
         valor = float(p.get('valor_total', 0))
         
-        # Ajuste: Lógica de texto do recibo baseada no status
+        # Lógica de descrição detalhada por status
+        pdf.set_font("Arial", '', 12)
         if p.get('status_total') == 'Recebido':
-            txt = f"a QUITAÇÃO INTEGRAL (100%) no valor de R$ {valor:,.2f}"
+            txt_principal = f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')})"
+            txt_valor = f"a importância total de R$ {valor:,.2f}"
+            txt_detalhe = "referente à QUITAÇÃO INTEGRAL dos serviços de design gráfico prestados."
         elif p.get('status_entrada') == 'Recebido' and p.get('status_final') == 'Pendente':
-            txt = f"o pagamento da ENTRADA (50%) no valor de R$ {valor/2:,.2f}"
+            txt_principal = f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')})"
+            txt_valor = f"a importância de R$ {valor/2:,.2f}"
+            txt_detalhe = "referente ao pagamento de ENTRADA (50%) para início da execução do projeto."
         else:
-            txt = f"o pagamento FINAL (50%) no valor de R$ {valor/2:,.2f}"
+            txt_principal = f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')})"
+            txt_valor = f"a importância de R$ {valor/2:,.2f}"
+            txt_detalhe = "referente ao pagamento FINAL (50%) e entrega definitiva dos arquivos do projeto."
             
-        pdf.set_font("Arial", '', 11)
-        pdf.multi_cell(0, 8, f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')}), {txt}, referente aos serviços de design descritos no projeto.")
-        pdf.ln(10)
-        pdf.cell(0, 10, f"Data: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='R')
+        pdf.multi_cell(0, 8, txt_principal)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.multi_cell(0, 8, txt_valor)
+        pdf.set_font("Arial", '', 12)
+        pdf.multi_cell(0, 8, txt_detalhe)
+        
+        pdf.ln(15)
+        pdf.set_font("Arial", 'I', 10)
+        pdf.cell(0, 10, f"Documento emitido em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", ln=True, align='R')
+        pdf.ln(20)
+        
+        # Assinatura do Studio
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 10, "________________________________________________", ln=True, align='C')
+        pdf.cell(0, 5, c.get('nome_empresa'), ln=True, align='C')
+        pdf.set_font("Arial", '', 9)
+        pdf.cell(0, 5, f"Representante Legal", ln=True, align='C')
 
     return pdf.output(dest='S').encode('latin-1')
 
