@@ -16,7 +16,7 @@ except Exception:
     st.error("Erro crítico de conexão.")
     st.stop()
 
-# --- 3. CSS PRETO E OURO (SISTEMA DE CORES BLINDADO) ---
+# --- 3. CSS PRETO E OURO (RESTABELECIDO E BLINDADO) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #FFFFFF; }
@@ -31,7 +31,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. FUNÇÕES DE DADOS ---
+# --- 4. FUNÇÕES DE DADOS (LACRADAS) ---
 def carregar_dados():
     try:
         proj = supabase.table("projetos").select("*").execute()
@@ -39,7 +39,7 @@ def carregar_dados():
         return proj.data if proj.data else [], conf.data[0] if conf.data else {}
     except Exception: return [], {}
 
-# --- 5. GERAÇÃO DE PDF (SISTEMA DE DOCUMENTOS INTEGRADO) ---
+# --- 5. GERAÇÃO DE PDF (SISTEMA DE DOCUMENTOS INTEGRADO - LACRADO) ---
 def gerar_pdf(tipo, p, c):
     pdf = FPDF()
     pdf.add_page()
@@ -126,6 +126,11 @@ if menu == "PAINEL":
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
+    
+    # Inicializa a trava de submissão na sessão (Blindagem interna)
+    if 'submitted' not in st.session_state:
+        st.session_state.submitted = False
+
     with st.form("orc_form"):
         c_nome = st.text_input("Nome do Cliente")
         col1, col2 = st.columns(2)
@@ -139,11 +144,12 @@ elif menu == "NOVO ORÇAMENTO":
         p_prazo = col4.text_input("Prazo de Entrega")
         p_desc = st.text_area("Descrição do Serviço")
         
-        # BLINDAGEM: O botão é a única forma de disparar o código abaixo
         btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
         
-        if btn_salvar:
-            if c_nome and p_nome: # Validação mínima para evitar envios vazios pelo Enter
+        # CORREÇÃO CIRÚRGICA: Verifica se o botão foi clicado E se já não foi enviado nesta rodada
+        if btn_salvar and not st.session_state.submitted:
+            if c_nome and p_nome:
+                st.session_state.submitted = True # Ativa a blindagem
                 try:
                     supabase.table("projetos").insert({
                         "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
@@ -152,8 +158,10 @@ elif menu == "NOVO ORÇAMENTO":
                         "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
                     }).execute()
                     st.success("Orçamento salvo com sucesso!")
+                    st.session_state.submitted = False # Libera para o próximo orçamento
                     st.rerun()
                 except Exception as e:
+                    st.session_state.submitted = False
                     st.error(f"Erro ao salvar: {e}")
             else:
                 st.warning("Por favor, preencha o nome do cliente e do projeto.")
