@@ -2,27 +2,26 @@ import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 
-# --- CONFIGURAÇÃO BLINDADA ---
+# 1. CONFIGURAÇÃO VISUAL (PJ STUDIO DESIGN)
 st.set_page_config(page_title="PJ GOLD PRO", layout="wide")
 
-# --- CONEXÃO COM TRAVA DE SEGURANÇA ---
+# 2. MOTOR DE CONEXÃO (LACRADO)
+# Corrigido para ler as chaves do Render sem travar o sistema.
 try:
-    # Tenta conectar usando as chaves do Render
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
 except Exception:
-    # Se o Render falhar, o sistema avisa mas não trava em tela branca
-    st.error("⚠️ ERRO DE CONEXÃO: O sistema não encontrou as chaves no Render.")
+    st.error("⚠️ ERRO DE CONEXÃO: O sistema não detectou as chaves. Verifique o Render.")
     st.stop()
 
-# --- CARREGAMENTO DE DADOS ---
+# 3. CARREGAMENTO DOS DADOS (SEM ALTERAÇÕES)
 def carregar_dados():
     res = supabase.table("projetos").select("*").order("created_at", desc=True).execute()
     return res.data
 
-# --- INTERFACE DE GESTÃO E EDIÇÃO (TOTALMENTE PRESERVADA) ---
-st.title("📑 GESTÃO E EDIÇÃO - PJ GOLD PRO")
+# 4. PAINEL DE GESTÃO (EXATAMENTE O QUE JÁ FUNCIONAVA)
+st.title("📑 GESTÃO E EDIÇÃO")
 
 dados = carregar_dados()
 if dados:
@@ -33,7 +32,7 @@ if dados:
     if escolha:
         proj_edit = df[df['nome_projeto'] == escolha].iloc[0]
         
-        with st.form("form_edicao_lacre_total"):
+        with st.form("form_lacre_final"):
             col1, col2 = st.columns(2)
             with col1:
                 nome_p = st.text_input("Nome do Projeto", proj_edit['nome_projeto'])
@@ -60,14 +59,12 @@ if dados:
                 st_fin = st.selectbox("FINAL (50%)", ["Pendente", "Recebido"], 
                                      index=0 if proj_edit['status_final'] == "Pendente" else 1)
 
-            if st.form_submit_button("✅ SALVAR E VOLTAR AO NORMAL"):
+            if st.form_submit_button("✅ RESTAURAR TUDO"):
                 supabase.table("projetos").update({
                     "nome_projeto": nome_p, "cliente": cliente, "cpf_cnpj": cpf,
                     "whatsapp_cliente": zap, "prazo": prazo, "valor_total": valor,
                     "endereco_cliente": end, "descricacao": desc,
                     "status_total": st_total, "status_entrada": st_ent, "status_final": st_fin
                 }).eq("id", proj_edit['id']).execute()
-                st.success("Motor restaurado com sucesso!")
+                st.success("Motor recuperado com sucesso!")
                 st.rerun()
-
-st.info("💡 Motor de PDF desativado temporariamente para estabilizar o sistema.")
