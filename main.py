@@ -126,7 +126,12 @@ if menu == "PAINEL":
 
 elif menu == "NOVO ORÇAMENTO":
     st.title("➕ NOVO ORÇAMENTO")
-    with st.form("orc_form"):
+    
+    # INICIALIZAÇÃO DA TRAVA DE SEGURANÇA (SESSÃO)
+    if 'processando' not in st.session_state:
+        st.session_state.processando = False
+
+    with st.form("orc_form", clear_on_submit=True):
         c_nome = st.text_input("Nome do Cliente")
         col1, col2 = st.columns(2)
         c_doc = col1.text_input("CPF/CNPJ")
@@ -141,8 +146,8 @@ elif menu == "NOVO ORÇAMENTO":
         
         btn_salvar = st.form_submit_button("SALVAR ORÇAMENTO")
         
-        if btn_salvar:
-            # CORREÇÃO ANTI-DUPLICIDADE: Processa apenas se não houver trava ativa
+        if btn_salvar and not st.session_state.processando:
+            st.session_state.processando = True  # ATIVA A BLINDAGEM CONTRA DUPLICIDADE
             try:
                 supabase.table("projetos").insert({
                     "cliente":c_nome, "cpf_cnpj":c_doc, "whatsapp_cliente":c_zap, 
@@ -151,8 +156,10 @@ elif menu == "NOVO ORÇAMENTO":
                     "status_total":"Pendente", "status_entrada":"Pendente", "status_final":"Pendente"
                 }).execute()
                 st.success("Orçamento salvo com sucesso!")
+                st.session_state.processando = False # LIBERA PARA O PRÓXIMO
                 st.rerun()
             except Exception as e:
+                st.session_state.processando = False
                 st.error(f"Erro ao salvar: {e}")
 
 elif menu == "GESTAO DE PROJETOS":
