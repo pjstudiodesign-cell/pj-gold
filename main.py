@@ -70,18 +70,24 @@ def gerar_pdf(tipo, p, c):
         pdf.multi_cell(0, 6, f"CONTRATANTE: {p.get('cliente')} | CPF/CNPJ: {p.get('cpf_cnpj', 'N/I')}")
         pdf.multi_cell(0, 6, f"ENDEREÇO: {p.get('endereco_cliente', 'N/I')}")
         pdf.ln(4)
-        
+
+        # ======================================================
+        # BLOCO DE CLÁUSULAS — ÚNICA PARTE ALTERADA NO ARQUIVO
+        # ======================================================
+        valor_total = float(p.get('valor_total', 0))
+        valor_entrada = valor_total / 2
         clausulas = [
             f"1. OBJETO: Prestação de serviços de design gráfico ({p.get('nome_projeto', '')}).",
             f"2. DESCRIÇÃO: {p.get('descricao', 'Conforme acordado')}.",
             f"3. PRAZO: {p.get('prazo', 'A combinar')}, contados após o pagamento da entrada.",
-            f"4. VALOR TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}.",
-            f"5. PAGAMENTO: Efetuado em regime 50/50 (Entrada/Entrega).",
-            f"6. EXIGÊNCIAS ESPECÍFICAS: {p.get('exigencias', 'Nenhuma')}.",
-            "7. ALTERAÇÕES: O projeto inclui até 2 (duas) revisões sem custo adicional.",
-            "8. DIREITOS: A propriedade intelectual é transferida ao cliente após quitação total.",
-            "9. CANCELAMENTO: Em caso de desistência após início, o valor da entrada não será devolvido."
+            f"4. VALOR E PAGAMENTO: Valor total: R$ {valor_total:,.2f}. Pagamento em duas etapas: 50% na contratação (R$ {valor_entrada:,.2f} - entrada para início do serviço) e 50% restantes (R$ {valor_entrada:,.2f}) na entrega final do material aprovado. Os arquivos finais sem marca d'água serão entregues somente após a quitação total.",
+            f"5. EXIGÊNCIAS ESPECÍFICAS: {p.get('exigencias', 'Nenhuma')}.",
+            "6. ALTERAÇÕES: O projeto inclui até 2 (duas) revisões simples sem custo adicional. Alterações adicionais poderão ser cobradas.",
+            "7. DIREITOS DE USO: Após pagamento integral, o cliente terá direito de uso do material. O PJ Studio Design poderá utilizar o material em portfólio.",
+            "8. CANCELAMENTO: Em caso de desistência após início do serviço, o valor da entrada não será devolvido.",
+            "9. VALIDADE: Este contrato passa a valer após assinatura das partes."
         ]
+        # ======================================================
         for item in clausulas: 
             pdf.multi_cell(0, 6, item)
             pdf.ln(1)
