@@ -185,7 +185,7 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, f"VALOR PAGO: R$ {float(p.get('valor_manutencao', 0)):,.2f}", ln=True, align='R')
         pdf.ln(3)
         pdf.set_font("Arial", '', 10)
-        pdf.cell(0, 6, "Pagamento efetuado à vista — quitado integralmente.", ln=True, align='R')
+        pdf.cell(0, 6, "Pagamento efetuado a vista - quitado integralmente.", ln=True, align='R')
 
         pdf.ln(15)
         pdf.set_font("Arial", 'I', 10)
@@ -317,14 +317,13 @@ elif menu == "GESTAO DE PROJETOS":
             )
             man_valor = man_col2.number_input("Valor (R$)", min_value=0.0, step=0.01, key=f"mval_{p['id']}")
 
-            if man_desc and man_valor > 0:
-                dados_manutencao = {**p, "desc_manutencao": man_desc, "valor_manutencao": man_valor}
-                st.download_button(
-                    "🔧 GERAR RECIBO DE MANUTENÇÃO",
-                    gerar_pdf("MANUTENCAO", dados_manutencao, config),
-                    f"Manutencao_{p['id']}.pdf",
-                    key=f"bm_{p['id']}"
-                )
+            dados_manutencao = {**p, "desc_manutencao": man_desc if man_desc else "Serviço extra conforme acordado.", "valor_manutencao": man_valor}
+            st.download_button(
+                "🔧 GERAR RECIBO DE MANUTENÇÃO",
+                gerar_pdf("MANUTENCAO", dados_manutencao, config),
+                f"Manutencao_{p['id']}.pdf",
+                key=f"bm_{p['id']}"
+            )
             # ======================================================
 
 elif menu == "CONFIGURAÇOES":
