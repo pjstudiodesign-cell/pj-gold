@@ -71,9 +71,6 @@ def gerar_pdf(tipo, p, c):
         pdf.multi_cell(0, 6, f"ENDEREÇO: {p.get('endereco_cliente', 'N/I')}")
         pdf.ln(4)
 
-        # ======================================================
-        # BLOCO DE CLÁUSULAS — ÚNICA PARTE ALTERADA NO ARQUIVO
-        # ======================================================
         valor_total = float(p.get('valor_total', 0))
         valor_entrada = valor_total / 2
         clausulas = [
@@ -87,7 +84,6 @@ def gerar_pdf(tipo, p, c):
             "8. CANCELAMENTO: Em caso de desistência após início do serviço, o valor da entrada não será devolvido.",
             "9. VALIDADE: Este contrato passa a valer após assinatura das partes."
         ]
-        # ======================================================
         for item in clausulas: 
             pdf.multi_cell(0, 6, item)
             pdf.ln(1)
@@ -120,7 +116,6 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, f"INVESTIMENTO TOTAL: R$ {float(p.get('valor_total', 0)):,.2f}", ln=True, align='R')
 
     elif tipo == "REC":
-        # Ajuste Elite: Título e Nome do Projeto abaixo dele
         pdf.set_font("Arial", 'B', 16)
         pdf.cell(0, 10, "RECIBO DE PAGAMENTO", ln=True, align='L')
         pdf.set_font("Arial", 'I', 11)
@@ -130,7 +125,6 @@ def gerar_pdf(tipo, p, c):
         
         valor = float(p.get('valor_total', 0))
         
-        # Lógica de descrição detalhada por status
         pdf.set_font("Arial", '', 12)
         if p.get('status_total') == 'Recebido':
             txt_principal = f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')})"
@@ -156,12 +150,54 @@ def gerar_pdf(tipo, p, c):
         pdf.cell(0, 10, f"Documento emitido em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", ln=True, align='R')
         pdf.ln(20)
         
-        # Assinatura do Studio
         pdf.set_font("Arial", 'B', 11)
         pdf.cell(0, 10, "________________________________________________", ln=True, align='C')
         pdf.cell(0, 5, c.get('nome_empresa'), ln=True, align='C')
         pdf.set_font("Arial", '', 9)
-        pdf.cell(0, 5, f"Representante Legal", ln=True, align='C')
+        pdf.cell(0, 5, "Representante Legal", ln=True, align='C')
+
+    elif tipo == "MANUTENCAO":
+        # ======================================================
+        # RECIBO DE MANUTENÇÃO / SERVIÇO EXTRA — NOVO
+        # ======================================================
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "RECIBO DE SERVIÇO EXTRA / MANUTENÇÃO", ln=True, align='L')
+        pdf.set_font("Arial", 'I', 11)
+        pdf.cell(0, 8, f"Referente ao Projeto: {p.get('nome_projeto')}", ln=True, align='L')
+        pdf.line(10, 65, 200, 65)
+        pdf.ln(10)
+
+        pdf.set_font("Arial", '', 12)
+        pdf.multi_cell(0, 8, f"Recebemos de {p.get('cliente')} ({p.get('cpf_cnpj', 'N/I')})")
+        pdf.set_font("Arial", 'B', 12)
+        pdf.multi_cell(0, 8, f"a importância de R$ {float(p.get('valor_manutencao', 0)):,.2f}")
+        pdf.set_font("Arial", '', 12)
+        pdf.multi_cell(0, 8, "referente ao pagamento INTEGRAL pelo serviço extra / manutenção descrito abaixo:")
+        pdf.ln(5)
+
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, "Descrição do Serviço:", ln=True)
+        pdf.set_font("Arial", '', 11)
+        pdf.multi_cell(0, 7, f"{p.get('desc_manutencao', 'Serviço extra conforme acordado.')}")
+        pdf.ln(10)
+
+        pdf.set_font("Arial", 'B', 13)
+        pdf.cell(0, 10, f"VALOR PAGO: R$ {float(p.get('valor_manutencao', 0)):,.2f}", ln=True, align='R')
+        pdf.ln(3)
+        pdf.set_font("Arial", '', 10)
+        pdf.cell(0, 6, "Pagamento efetuado à vista — quitado integralmente.", ln=True, align='R')
+
+        pdf.ln(15)
+        pdf.set_font("Arial", 'I', 10)
+        pdf.cell(0, 10, f"Documento emitido em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", ln=True, align='R')
+        pdf.ln(20)
+
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 10, "________________________________________________", ln=True, align='C')
+        pdf.cell(0, 5, c.get('nome_empresa'), ln=True, align='C')
+        pdf.set_font("Arial", '', 9)
+        pdf.cell(0, 5, "Representante Legal", ln=True, align='C')
+        # ======================================================
 
     return pdf.output(dest='S').encode('latin-1')
 
@@ -267,6 +303,29 @@ elif menu == "GESTAO DE PROJETOS":
             b4.download_button("📜 CONTRATO", gerar_pdf("CONTRATO", p, config), f"Con_{p['id']}.pdf", key=f"bc_{p['id']}")
             if b5.button("🗑️ EXCLUIR", key=f"del_{p['id']}"):
                 supabase.table("projetos").delete().eq("id", p['id']).execute(); st.rerun()
+
+            # ======================================================
+            # SEÇÃO MANUTENÇÃO / SERVIÇO EXTRA — ÚNICO ACRÉSCIMO
+            # ======================================================
+            st.write("---")
+            st.write("**🔧 Serviço Extra / Manutenção**")
+            man_col1, man_col2 = st.columns([3, 1])
+            man_desc = man_col1.text_input(
+                "Descrição do Serviço Extra",
+                placeholder="Ex: Atualização de cardápio, ajuste de arte...",
+                key=f"mdesc_{p['id']}"
+            )
+            man_valor = man_col2.number_input("Valor (R$)", min_value=0.0, step=0.01, key=f"mval_{p['id']}")
+
+            if man_desc and man_valor > 0:
+                dados_manutencao = {**p, "desc_manutencao": man_desc, "valor_manutencao": man_valor}
+                st.download_button(
+                    "🔧 GERAR RECIBO DE MANUTENÇÃO",
+                    gerar_pdf("MANUTENCAO", dados_manutencao, config),
+                    f"Manutencao_{p['id']}.pdf",
+                    key=f"bm_{p['id']}"
+                )
+            # ======================================================
 
 elif menu == "CONFIGURAÇOES":
     st.title("⚙️ CONFIGURAÇÕES")
